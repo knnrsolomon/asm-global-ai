@@ -1,61 +1,86 @@
 <!DOCTYPE html>
 <html>
 <head>
-  <title id="dynamicTitle">Loading...</title>
+  <title>ASM Global AI</title>
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
 
   <style>
     body {
       margin:0;
-      font-family: Arial;
+      display:flex;
+      height:100vh;
+      font-family: Arial, sans-serif;
       background:#0f172a;
       color:white;
     }
 
-    header {
+    /* SIDEBAR */
+    .sidebar {
+      width:240px;
+      background:#020617;
+      padding:20px;
+    }
+
+    .sidebar h2 {
+      margin-bottom:20px;
+    }
+
+    .sidebar button {
+      width:100%;
+      padding:10px;
+      margin-bottom:10px;
+      border:none;
+      background:#1e293b;
+      color:white;
+      cursor:pointer;
+      border-radius:6px;
+    }
+
+    .sidebar button:hover {
+      background:#334155;
+    }
+
+    /* MAIN */
+    .main {
+      flex:1;
       display:flex;
-      justify-content:space-between;
+      flex-direction:column;
+    }
+
+    .topbar {
       padding:15px;
       background:#020617;
     }
 
-    .apps {
-      display:grid;
-      grid-template-columns: repeat(auto-fit, minmax(250px,1fr));
-      gap:20px;
-      padding:30px;
-    }
-
-    .card {
-      background:#1e293b;
+    .chat {
+      flex:1;
       padding:20px;
-      border-radius:10px;
-      cursor:pointer;
-      transition:0.2s;
-    }
-
-    .card:hover {
-      background:#334155;
-    }
-
-    #chatBox {
-      display:none;
-      padding:20px;
-    }
-
-    #messages {
-      height:300px;
       overflow:auto;
+    }
+
+    .inputBox {
+      padding:15px;
       background:#020617;
-      padding:10px;
-      border-radius:10px;
+      display:flex;
+      gap:10px;
     }
 
-    input, button {
+    input {
+      flex:1;
       padding:10px;
-      margin-top:10px;
+      border:none;
+      border-radius:6px;
     }
 
+    button.send {
+      padding:10px 15px;
+      background:#3b82f6;
+      border:none;
+      color:white;
+      border-radius:6px;
+    }
+
+    /* AUTH */
     #auth {
       position:fixed;
       inset:0;
@@ -65,168 +90,123 @@
       align-items:center;
       background:#0f172a;
     }
+
+    #auth input {
+      margin:5px;
+      padding:10px;
+      width:250px;
+    }
   </style>
 </head>
 
 <body>
 
-<!-- LOGIN -->
 <div id="auth">
-  <h2>ASM GLOBAL AI HUB</h2>
+  <h2>ASM GLOBAL AI</h2>
   <input id="email" placeholder="Email">
-  <input id="password" type="password">
+  <input id="password" type="password" placeholder="Password">
   <button onclick="login()">Login</button>
   <button onclick="signup()">Signup</button>
   <p id="msg"></p>
 </div>
 
-<header>
-  <!-- 🔥 FIX: give ID -->
-  <div id="title">ASM GLOBAL AI HUB</div>
-  <div>
-    <button onclick="logout()">Logout</button>
-  </div>
-</header>
-
-<!-- LANDING PAGE -->
-<div class="apps" id="apps">
-
-  <div class="card" onclick="go('http://ai.asmglobal.cloud')">
-    <h3>Core AI</h3>
-    <p>General assistant</p>
-  </div>
-
-  <div class="card" onclick="go('http://spiritlynk.asmglobal.cloud')">
-    <h3>SpiritLynk AI</h3>
-    <p>Spiritual growth, purpose, destiny</p>
-  </div>
-
-  <div class="card" onclick="go('http://rgi.asmglobal.cloud')">
-    <h3>RisingGem AI</h3>
-    <p>Learning, teaching, mentorship</p>
-  </div>
-
-  <div class="card" onclick="go('http://finai.asmglobal.cloud')">
-    <h3>Finance AI</h3>
-    <p>Money, insights, analytics</p>
-  </div>
-
+<div class="sidebar">
+  <h2>ASM AI</h2>
+  <button onclick="setMode('asm')">Core AI</button>
+  <button onclick="setMode('spiritlynk')">SpiritLynk</button>
+  <button onclick="setMode('rgi')">RisingGem</button>
+  <button onclick="setMode('finance')">Finance</button>
 </div>
 
-<!-- CHAT -->
-<div id="chatBox">
-  <div id="messages"></div>
-  <input id="input" placeholder="Type message..." style="width:80%">
-  <button onclick="send()">Send</button>
+<div class="main">
+
+  <div class="topbar">
+    Dashboard
+  </div>
+
+  <div id="chat" class="chat"></div>
+
+  <div class="inputBox">
+    <input id="input" placeholder="Type a message...">
+    <button class="send" onclick="send()">Send</button>
+  </div>
+
 </div>
 
 <script>
 
-// ================= NAV =================
-function go(url){
-  window.location.href = url;
-}
+let mode = "asm";
 
-// ================= BRANDING =================
-function applyBranding() {
-  const host = window.location.hostname;
-
-  let title = "ASM GLOBAL AI HUB";
-
-  if (host.includes("spiritlynk")) title = "SpiritLynk AI";
-  else if (host.includes("rgi")) title = "RisingGem AI";
-  else if (host.includes("finai")) title = "Finance AI";
-
-  // 🔥 FORCE UPDATE TITLE (STRONG METHOD)
-  const titleTag = document.getElementById("dynamicTitle");
-  if (titleTag) titleTag.innerText = title;
-
-  document.title = title;
-
-  // Header update
-  document.getElementById("title").innerText = title;
-}
-
-// ================= AUTH =================
-async function checkAuth(){
+async function checkAuth() {
   const res = await fetch("/me", { credentials:"include" });
-  const d = await res.json();
+  const data = await res.json();
 
-  if(d.loggedIn){
+  if (data.loggedIn) {
     document.getElementById("auth").style.display = "none";
   }
 }
 
-async function login(){
+async function login() {
   const res = await fetch("/login", {
     method:"POST",
     credentials:"include",
     headers:{"Content-Type":"application/json"},
-    body:JSON.stringify({
-      email:email.value,
-      password:password.value
+    body: JSON.stringify({
+      email: email.value,
+      password: password.value
     })
   });
 
-  const d = await res.json();
+  const data = await res.json();
 
-  if(d.success){
-    applyBranding();
+  if (data.success) {
     checkAuth();
   } else {
-    msg.innerText = d.error;
+    msg.innerText = data.error;
   }
 }
 
-async function signup(){
+async function signup() {
   const res = await fetch("/signup", {
     method:"POST",
     headers:{"Content-Type":"application/json"},
-    body:JSON.stringify({
-      email:email.value,
-      password:password.value
+    body: JSON.stringify({
+      email: email.value,
+      password: password.value
     })
   });
 
-  const d = await res.json();
-  msg.innerText = d.success ? "Signup successful" : d.error;
+  const data = await res.json();
+  msg.innerText = data.success ? "Signup successful" : data.error;
 }
 
-async function logout(){
-  await fetch("/logout", { method:"POST", credentials:"include" });
-  location.reload();
+function setMode(m) {
+  mode = m;
 }
 
-// ================= CHAT =================
-async function send(){
+async function send() {
   const text = input.value;
   input.value = "";
 
-  messages.innerHTML += `<div><b>You:</b> ${text}</div>`;
+  chat.innerHTML += `<div>You: ${text}</div>`;
 
   const res = await fetch("/chat", {
     method:"POST",
     credentials:"include",
     headers:{"Content-Type":"application/json"},
-    body:JSON.stringify({ message:text })
+    body: JSON.stringify({
+      message: text,
+      mode: mode
+    })
   });
 
   const data = await res.json();
 
-  if(data.error){
-    messages.innerHTML += `<div style="color:red">${data.error}</div>`;
-  } else {
-    messages.innerHTML += `<div><b>AI:</b> ${data.reply}</div>`;
-  }
-
-  messages.scrollTop = messages.scrollHeight;
+  chat.innerHTML += `<div>AI: ${data.reply}</div>`;
+  chat.scrollTop = chat.scrollHeight;
 }
 
-// ================= INIT =================
-window.onload = () => {
-  applyBranding();   // 🔥 GUARANTEED RUN
-  checkAuth();
-};
+checkAuth();
 
 </script>
 
