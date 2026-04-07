@@ -251,7 +251,10 @@
 
   <!-- MIC -->
   <button onclick="startVoice()" style="padding:10px;border-radius:6px;background:#1e293b;color:white;">🎤</button>
-
+<button onclick="toggleImageMode()" id="imageModeBtn"
+  style="padding:10px;border-radius:6px;background:#1e293b;color:white;">
+  🖼
+</button>
   <!-- SEND -->
   <button onclick="send()">Send</button>
 
@@ -270,7 +273,7 @@
   width:200px;
 ">
   <div onclick="triggerFile()">📎 Add photos & files</div>
-  <div onclick="alert('Image generation later')">🖼 Create image</div>
+  <div onclick="activateImageMode()">🖼 Create image</div>
 </div>
 
 </div>
@@ -279,6 +282,7 @@
 
 let isLoggedIn = false;
 let mode = "asm";
+let imageMode = false;
 let chats = {};
 let currentChatId = null;
 
@@ -415,8 +419,8 @@ function renderChat() {
 
   try {
 
-    // 🔥 IMAGE DETECTION (SMART SWITCH)
-    if (text.toLowerCase().includes("image") || text.toLowerCase().includes("generate")) {
+    // ✅ IMAGE MODE
+    if (imageMode) {
 
       const res = await fetch("/api/generate-image", {
         method: "POST",
@@ -428,11 +432,27 @@ function renderChat() {
 
       chat.messages.push({
         role: "ai",
-        text: `<img src="${data.imageUrl}" style="max-width:250px;border-radius:10px;">`
+        text: `
+          <div style="display:flex;flex-direction:column;gap:8px;">
+            <img src="${data.imageUrl}" style="max-width:250px;border-radius:10px;">
+            <button onclick="downloadImage('${data.imageUrl}')"
+              style="padding:6px;border:none;border-radius:6px;background:#3b82f6;color:white;cursor:pointer;">
+              Download
+            </button>
+          </div>
+        `
       });
+
+      // reset image mode
+      imageMode = false;
+
+      const btn = document.getElementById("imageModeBtn");
+      btn.innerText = "🖼";
+      btn.style.background = "#1e293b";
 
     } else {
 
+      // ✅ NORMAL CHAT
       const res = await fetch("/chat", {
         method: "POST",
         credentials: "include",
@@ -591,6 +611,34 @@ function openSettings() {
 
 function openHelp() {
   alert("Help center coming soon");
+}
+function downloadImage(url) {
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = "kojo-image.png";
+  a.click();
+}
+function toggleImageMode() {
+  imageMode = !imageMode;
+
+  const btn = document.getElementById("imageModeBtn");
+
+  if (imageMode) {
+    btn.style.background = "#f59e0b"; // orange
+    btn.innerText = "🖼 ON";
+  } else {
+    btn.style.background = "#1e293b";
+    btn.innerText = "🖼";
+  }
+}
+function activateImageMode() {
+  imageMode = true;
+
+  const btn = document.getElementById("imageModeBtn");
+  btn.style.background = "#f59e0b";
+  btn.innerText = "🖼 ON";
+
+  document.getElementById("input").focus();
 }
 checkAuth();
 
