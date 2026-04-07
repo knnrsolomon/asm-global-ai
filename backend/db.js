@@ -7,11 +7,23 @@ export async function initDB() {
     driver: sqlite3.Database,
   });
 
+  // ✅ USERS TABLE
   await db.exec(`
     CREATE TABLE IF NOT EXISTS users (
       id TEXT PRIMARY KEY,
       email TEXT UNIQUE,
       password TEXT
+    );
+  `);
+
+  // ✅ PROFILES TABLE (SAFE ADD)
+  await db.exec(`
+    CREATE TABLE IF NOT EXISTS profiles (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      email TEXT UNIQUE,
+      name TEXT,
+      avatar TEXT,
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP
     );
   `);
 

@@ -1,148 +1,86 @@
 import express from "express";
 import cors from "cors";
 import dotenv from "dotenv";
-import OpenAI from "openai";
-import crypto from "crypto";
 import cookieParser from "cookie-parser";
 import bcrypt from "bcrypt";
 import jwt from "jsonwebtoken";
+import crypto from "crypto";
 import { initDB } from "./db.js";
 import path from "path";
+import OpenAI from "openai";
 
 dotenv.config();
 
 const app = express();
-
 app.use(cors({ origin: true, credentials: true }));
 app.use(express.json());
 app.use(cookieParser());
 
-// ================= PATH =================
 const __dirname = new URL('.', import.meta.url).pathname;
 
-// 🔥 FIXED PATH TO FRONTEND
-const frontendPath = path.join(__dirname, "../frontend/hub");
-
-// ================= STATIC =================
-app.use(express.static(frontendPath));
-
+// static
+app.use(express.static(path.join(__dirname, "../frontend/hub")));
 app.get("/", (req, res) => {
-  res.sendFile(path.join(frontendPath, "index.html"));
+  res.sendFile(path.join(__dirname, "../frontend/hub/index.html"));
 });
-
-// ================= OPENAI =================
-const client = new OpenAI({
-  apiKey: process.env.OPENAI_API_KEY,
-});
-
-// ================= DB =================
+// db
 let db;
 (async () => {
   db = await initDB();
-
-  await db.exec(`
-    CREATE TABLE IF NOT EXISTS chats (
-      id TEXT PRIMARY KEY,
-      userId TEXT,
-      mode TEXT,
-      message TEXT,
-      role TEXT,
-      createdAt DATETIME DEFAULT CURRENT_TIMESTAMP
-    );
-  `);
-
-  console.log("✅ DB ready");
+  console.log("DB ready");
 })();
 
-// ================= MODE DETECTION =================
-function detectMode(req) {
-  const host = req.hostname;
-
-  if (host.includes("spiritlynk")) return "spiritlynk";
-  if (host.includes("rgi")) return "rgi";
-  if (host.includes("finai")) return "finance";
-
-  return req.body?.mode || "asm";
-}
-
-// ================= PROMPTS =================
-function getSystemPrompt(mode) {
-  switch (mode) {
-    case "spiritlynk":
-      return "You are SpiritLynk AI. Help users grow spiritually, discover purpose, and align with destiny.";
-
-    case "rgi":
-      return "You are RisingGem AI. Teach clearly, mentor users, and explain concepts deeply like a coach.";
-
-    case "finance":
-      return "You are Finance AI. Help users manage money, budgeting, business, and financial growth.";
-
-    default:
-      return "You are ASM Core AI. Assist with general intelligence, guidance, and problem-solving.";
-  }
-}
-
 // ================= AUTH =================
+
 function auth(req, res, next) {
   const token = req.cookies.token;
-
-  if (!token) {
-    return res.status(401).json({ error: "Not logged in" });
-  }
+  if (!token) return res.json({ loggedIn: false });
 
   try {
-    const decoded = jwt.verify(token, process.env.JWT_SECRET || "secret");
+    const decoded = jwt.verify(token, "secret");
     req.userId = decoded.id;
     next();
   } catch {
-    return res.status(401).json({ error: "Invalid session" });
+    return res.json({ loggedIn: false });
   }
 }
 
 // ================= SIGNUP =================
+
 app.post("/signup", async (req, res) => {
   const { email, password } = req.body;
 
-  if (!email || !password) {
-    return res.json({ error: "Missing email or password" });
-  }
+  const hash = await bcrypt.hash(password, 10);
+  const id = crypto.randomUUID();
 
   try {
-    const hash = await bcrypt.hash(password, 10);
-    const id = crypto.randomUUID();
-
     await db.run(
       "INSERT INTO users (id,email,password) VALUES (?,?,?)",
       [id, email, hash]
     );
-
     res.json({ success: true });
   } catch {
-    res.json({ error: "User already exists" });
+    res.json({ error: "User exists" });
   }
 });
 
 // ================= LOGIN =================
+
 app.post("/login", async (req, res) => {
   const { email, password } = req.body;
 
   const user = await db.get("SELECT * FROM users WHERE email=?", [email]);
-
   if (!user) return res.json({ error: "User not found" });
 
   const valid = await bcrypt.compare(password, user.password);
-
   if (!valid) return res.json({ error: "Wrong password" });
 
-  const token = jwt.sign(
-    { id: user.id },
-    process.env.JWT_SECRET || "secret",
-    { expiresIn: "7d" }
-  );
+  const token = jwt.sign({ id: user.id }, "secret");
 
   res.cookie("token", token, {
     httpOnly: true,
     sameSite: "lax",
+    secure: false,
     path: "/"
   });
 
@@ -150,93 +88,107 @@ app.post("/login", async (req, res) => {
 });
 
 // ================= LOGOUT =================
+
 app.post("/logout", (req, res) => {
-  res.clearCookie("token", {
+  res.cookie("token", "", {
     httpOnly: true,
+    sameSite: "lax",
+    secure: false,
+    expires: new Date(0),
     path: "/"
   });
 
   res.json({ success: true });
 });
 
-// ================= SESSION =================
-app.get("/me", async (req, res) => {
-  const token = req.cookies.token;
+// ================= ME =================
 
-  if (!token) return res.json({ loggedIn: false });
+app.get("/me", auth, async (req, res) => {
+  if (!req.userId) return res.json({ loggedIn: false });
 
-  try {
-    const decoded = jwt.verify(token, process.env.JWT_SECRET || "secret");
+  const user = await db.get(
+    "SELECT email FROM users WHERE id=?",
+    [req.userId]
+  );
 
-    const user = await db.get("SELECT email FROM users WHERE id=?", [decoded.id]);
-
-    res.json({
-      loggedIn: true,
-      email: user?.email || "User"
-    });
-
-  } catch {
-    res.json({ loggedIn: false });
-  }
+  res.json({
+    loggedIn: true,
+    email: user.email
+  });
 });
 
-// ================= CHAT =================
+// ================= PROFILE =================
+
+// GET PROFILE
+app.get("/profile", auth, async (req, res) => {
+  if (!req.userId) return res.json({ error: "Not logged in" });
+
+  const user = await db.get("SELECT email FROM users WHERE id=?", [req.userId]);
+
+  const profile = await db.get(
+    "SELECT * FROM profiles WHERE email=?",
+    [user.email]
+  );
+
+  res.json({
+    email: user.email,
+    name: profile?.name || ""
+  });
+});
+
+// UPDATE PROFILE
+app.post("/profile/update", auth, async (req, res) => {
+  if (!req.userId) return res.json({ error: "Not logged in" });
+
+  const { name } = req.body;
+
+  const user = await db.get("SELECT email FROM users WHERE id=?", [req.userId]);
+
+  await db.run(
+    `
+    INSERT INTO profiles (email, name)
+    VALUES (?, ?)
+    ON CONFLICT(email) DO UPDATE SET name=excluded.name
+    `,
+    [user.email, name]
+  );
+
+  res.json({ success: true });
+});
+
+// ================= AI =================
+
+const client = new OpenAI({
+  apiKey: process.env.OPENAI_API_KEY
+});
+
+function getPrompt(mode) {
+  if (mode === "spiritlynk") return "You are SpiritLynk AI. Guide spiritually.";
+  if (mode === "rgi") return "You are RisingGem AI. Teach clearly.";
+  if (mode === "finance") return "You are Finance AI. Help with money.";
+  return "You are ASM Core AI.";
+}
+
 app.post("/chat", auth, async (req, res) => {
+  const { message, mode } = req.body;
+
   try {
-    const { message } = req.body;
-    const mode = detectMode(req);
-    const userId = req.userId;
-
-    let history = [];
-    try {
-      history = await db.all(
-        "SELECT role, message FROM chats WHERE userId=? AND mode=? ORDER BY createdAt ASC LIMIT 10",
-        [userId, mode]
-      );
-    } catch (e) {
-      console.log("⚠️ History error:", e.message);
-    }
-
-    const messages = [
-      { role: "system", content: getSystemPrompt(mode) },
-      ...history.map(h => ({
-        role: h.role,
-        content: h.message
-      })),
-      { role: "user", content: message }
-    ];
-
     const response = await client.chat.completions.create({
       model: "gpt-4.1-mini",
-      messages
+      messages: [
+        { role: "system", content: getPrompt(mode) },
+        { role: "user", content: message || " " }
+      ]
     });
 
-    const reply = response?.choices?.[0]?.message?.content;
-
-    if (!reply) {
-      console.log("❌ No reply:", response);
-      return res.json({ error: "No AI response" });
-    }
-
-    await db.run(
-      "INSERT INTO chats (id,userId,mode,message,role) VALUES (?,?,?,?,?)",
-      [crypto.randomUUID(), userId, mode, message, "user"]
-    );
-
-    await db.run(
-      "INSERT INTO chats (id,userId,mode,message,role) VALUES (?,?,?,?,?)",
-      [crypto.randomUUID(), userId, mode, reply, "assistant"]
-    );
-
-    res.json({ reply });
-
+    res.json({
+      reply: response.choices[0].message.content
+    });
   } catch (err) {
-    console.log("❌ CHAT ERROR:", err.message);
-    res.json({ error: err.message });
+    res.json({ error: "AI error" });
   }
 });
 
 // ================= START =================
-app.listen(3000, "0.0.0.0", () => {
-  console.log("🚀 CLEAN CORE STABLE");
-});
+
+app.listen(3000, () => console.log("SERVER RUNNING"));

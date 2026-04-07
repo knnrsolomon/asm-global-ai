@@ -209,16 +209,21 @@
     </div>
 
     <div id="profileMenu" class="profile-menu">
-      <div>➕ Add another account</div>
-      <hr>
-      <div>⬆️ Upgrade plan</div>
-      <div>🎨 Personalization</div>
-      <div>👤 Profile</div>
-      <div>⚙️ Settings</div>
-      <hr>
-      <div>❓ Help</div>
-      <div onclick="logout()">🚪 Log out</div>
-    </div>
+
+  <div onclick="addAccount()">➕ Add another account</div>
+  <hr>
+
+  <div onclick="upgradePlan()">⬆️ Upgrade plan</div>
+  <div onclick="personalization()">🎨 Personalization</div>
+  <div onclick="openProfile()">👤 Profile</div>
+  <div onclick="openSettings()">⚙️ Settings</div>
+
+  <hr>
+
+  <div onclick="openHelp()">❓ Help</div>
+  <div onclick="logout()">🚪 Log out</div>
+
+</div>
 
   </div>
 
@@ -474,9 +479,18 @@ async function checkAuth() {
   }
 
   document.getElementById("auth").style.display = "none";
-  document.getElementById("userEmail").innerText = data.email;
-  document.getElementById("avatarInitial").innerText =
-    data.email ? data.email.charAt(0).toUpperCase() : "U";
+  // fetch profile also
+const profileRes = await fetch("/profile", { credentials:"include" });
+const profile = await profileRes.json();
+
+const displayName = profile.name || data.email;
+
+// ✅ SHOW ONLY ONE LINE
+document.getElementById("userEmail").innerText = displayName;
+
+// ✅ AVATAR USE NAME FIRST
+document.getElementById("avatarInitial").innerText =
+  displayName.charAt(0).toUpperCase();
 }
 
 async function logout() {
@@ -506,6 +520,47 @@ function startVoice() {
   };
 
   recognition.start();
+}
+function addAccount() {
+  alert("Multi-account feature coming soon");
+}
+
+function upgradePlan() {
+  alert("Upgrade system coming soon");
+}
+
+function personalization() {
+  document.body.style.background = "#020617";
+  alert("Dark theme activated");
+}
+
+async function openProfile() {
+  const res = await fetch("/profile", { credentials:"include" });
+  const data = await res.json();
+
+  const name = prompt("Enter your name:", data.name || "");
+
+  if (name !== null) {
+    await fetch("/profile/update", {
+      method:"POST",
+      headers:{"Content-Type":"application/json"},
+      credentials:"include",
+      body: JSON.stringify({ name })
+    });
+
+    alert("Profile updated");
+
+    // ✅ THIS WAS MISSING
+    checkAuth();
+  }
+}
+
+function openSettings() {
+  alert("Settings panel coming soon");
+}
+
+function openHelp() {
+  alert("Help center coming soon");
 }
 checkAuth();
 
