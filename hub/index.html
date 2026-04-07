@@ -1,0 +1,160 @@
+<!DOCTYPE html>
+<html>
+<body>
+
+<h2>ASM AI</h2>
+
+<div id="auth">
+  <input id="email" placeholder="email">
+  <input id="password" type="password">
+  <button onclick="login()">Login</button>
+  <button onclick="signup()">Signup</button>
+  <p id="msg"></p>
+</div>
+
+<div id="app" style="display:none">
+
+  <h3>ASM AI</h3>
+  <button onclick="logout()">Logout</button>
+
+  <!-- MODE SWITCH -->
+  <div>
+    <button onclick="setMode('asm')">Core</button>
+    <button onclick="setMode('spiritlynk')">SpiritLynk</button>
+    <button onclick="setMode('rgi')">RisingGem</button>
+    <button onclick="setMode('finance')">Finance</button>
+  </div>
+
+  <!-- CHAT -->
+  <div id="chat" style="margin-top:20px;"></div>
+
+  <input id="input" placeholder="Type message">
+  <button onclick="send()">Send</button>
+
+</div>
+
+<script>
+
+// ================= AUTH CHECK =================
+async function check() {
+  const res = await fetch("/me", { credentials:"include" });
+  const d = await res.json();
+
+  const authDiv = document.getElementById("auth");
+  const appDiv = document.getElementById("app");
+
+  if (d.loggedIn) {
+    authDiv.style.display = "none";
+    appDiv.style.display = "block";
+  } else {
+    authDiv.style.display = "block";
+    appDiv.style.display = "none";
+  }
+}
+
+// ================= LOGIN =================
+async function login() {
+  const msg = document.getElementById("msg");
+  msg.innerText = "Logging in...";
+
+  try {
+    const res = await fetch("/login", {
+      method:"POST",
+      headers:{"Content-Type":"application/json"},
+      credentials:"include",
+      body: JSON.stringify({
+        email: document.getElementById("email").value,
+        password: document.getElementById("password").value
+      })
+    });
+
+    const data = await res.json();
+    msg.innerText = JSON.stringify(data);
+
+    if (data.success) {
+      document.getElementById("auth").style.display = "none";
+      document.getElementById("app").style.display = "block";
+    }
+
+  } catch (err) {
+    msg.innerText = "Error: " + err.message;
+  }
+}
+
+// ================= SIGNUP =================
+async function signup() {
+  const msg = document.getElementById("msg");
+  msg.innerText = "Signing up...";
+
+  try {
+    const res = await fetch("/signup", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify({
+        email: document.getElementById("email").value,
+        password: document.getElementById("password").value
+      })
+    });
+
+    const data = await res.json();
+    msg.innerText = JSON.stringify(data);
+
+  } catch (err) {
+    msg.innerText = "Error: " + err.message;
+  }
+}
+
+// ================= LOGOUT =================
+async function logout() {
+  await fetch("/logout", { method:"POST", credentials:"include" });
+  location.reload();
+}
+
+// ================= MODE =================
+let mode = "asm";
+
+function setMode(m) {
+  mode = m;
+  document.getElementById("chat").innerHTML += `<div>Switched to ${m}</div>`;
+}
+
+// ================= CHAT =================
+async function send() {
+  const input = document.getElementById("input");
+  const chat = document.getElementById("chat");
+
+  const message = input.value;
+  input.value = "";
+
+  chat.innerHTML += `<div><b>You:</b> ${message}</div>`;
+
+  const res = await fetch("/chat", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json"
+    },
+    credentials: "include",
+    body: JSON.stringify({
+      message,
+      mode
+    })
+  });
+
+  const data = await res.json();
+
+  if (data.error) {
+    chat.innerHTML += `<div style="color:red;">ERROR: ${data.error}</div>`;
+  } else {
+    chat.innerHTML += `<div><b>AI:</b> ${data.reply}</div>`;
+  }
+}
+
+// ================= INIT =================
+check();
+
+</script>
+
+</body>
+</html>
