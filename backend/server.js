@@ -18,35 +18,41 @@ app.use(cookieParser());
 
 const __dirname = new URL('.', import.meta.url).pathname;
 
-// static
+// ================= STATIC =================
 app.use(express.static(path.join(__dirname, "../frontend/hub")));
 app.get("/", (req, res) => {
   res.sendFile(path.join(__dirname, "../frontend/hub/index.html"));
 });
-// db
+
+// ================= DB =================
 let db;
 (async () => {
   db = await initDB();
   console.log("DB ready");
 })();
 
-// ================= AUTH =================
+// ================= OPENAI =================
+const client = new OpenAI({
+  apiKey: process.env.OPENAI_API_KEY
+});
 
+// ================= AUTH =================
 function auth(req, res, next) {
   const token = req.cookies.token;
-  if (!token) return res.json({ loggedIn: false });
+  if (!token) return res.status(401).json({ error: "Not logged in" });
 
   try {
     const decoded = jwt.verify(token, "secret");
     req.userId = decoded.id;
     next();
   } catch {
-    return res.json({ loggedIn: false });
+    return res.status(401).json({ error: "Invalid token" });
   }
 }
 
-// ================= SIGNUP =================
+// ================= AUTH ROUTES =================
 
+// SIGNUP
 app.post("/signup", async (req, res) => {
   const { email, password } = req.body;
 
@@ -64,8 +70,7 @@ app.post("/signup", async (req, res) => {
   }
 });
 
-// ================= LOGIN =================
-
+// LOGIN
 app.post("/login", async (req, res) => {
   const { email, password } = req.body;
 
@@ -87,8 +92,7 @@ app.post("/login", async (req, res) => {
   res.json({ success: true });
 });
 
-// ================= LOGOUT =================
-
+// LOGOUT
 app.post("/logout", (req, res) => {
   res.cookie("token", "", {
     httpOnly: true,
@@ -101,11 +105,8 @@ app.post("/logout", (req, res) => {
   res.json({ success: true });
 });
 
-// ================= ME =================
-
+// ME
 app.get("/me", auth, async (req, res) => {
-  if (!req.userId) return res.json({ loggedIn: false });
-
   const user = await db.get(
     "SELECT email FROM users WHERE id=?",
     [req.userId]
@@ -121,8 +122,6 @@ app.get("/me", auth, async (req, res) => {
 
 // GET PROFILE
 app.get("/profile", auth, async (req, res) => {
-  if (!req.userId) return res.json({ error: "Not logged in" });
-
   const user = await db.get("SELECT email FROM users WHERE id=?", [req.userId]);
 
   const profile = await db.get(
@@ -138,8 +137,6 @@ app.get("/profile", auth, async (req, res) => {
 
 // UPDATE PROFILE
 app.post("/profile/update", auth, async (req, res) => {
-  if (!req.userId) return res.json({ error: "Not logged in" });
-
   const { name } = req.body;
 
   const user = await db.get("SELECT email FROM users WHERE id=?", [req.userId]);
@@ -156,11 +153,7 @@ app.post("/profile/update", auth, async (req, res) => {
   res.json({ success: true });
 });
 
-// ================= AI =================
-
-const client = new OpenAI({
-  apiKey: process.env.OPENAI_API_KEY
-});
+// ================= AI CHAT =================
 
 function getPrompt(mode) {
   if (mode === "spiritlynk") return "You are SpiritLynk AI. Guide spiritually.";
@@ -170,9 +163,9 @@ function getPrompt(mode) {
 }
 
 app.post("/chat", auth, async (req, res) => {
-  const { message, mode } = req.body;
-
   try {
+    const { message, mode } = req.body;
+
     const response = await client.chat.completions.create({
       model: "gpt-4.1-mini",
       messages: [
@@ -184,11 +177,54 @@ app.post("/chat", auth, async (req, res) => {
     res.json({
       reply: response.choices[0].message.content
     });
-  } catch (err) {
-    res.json({ error: "AI error" });
+
+  } catch (error) {
+    console.error("CHAT ERROR:", error);
+    res.status(500).json({ error: "Chat failed" });
   }
 });
 
-// ================= START =================
+// ================= IMAGE GENERATION =================
+// 🚀 PUBLIC (no auth — avoids cross-domain issues)
+app.post("/api/generate-image", async (req, res) => {
+  try {
+    const { prompt } = req.body;
 
+    if (!prompt) {
+      return res.status(400).json({ error: "Prompt is required" });
+    }
+
+    const result = await client.images.generate({
+      model: "gpt-image-1",
+      prompt,
+      size: "1024x1024"
+    });
+
+    const image = result.data[0];
+
+    // HANDLE BOTH TYPES
+    if (image.url) {
+      return res.json({ imageUrl: image.url });
+    }
+
+    if (image.b64_json) {
+      return res.json({
+        imageUrl: `data:image/png;base64,${image.b64_json}`
+      });
+    }
+
+    return res.json({ error: "No image returned" });
+
+  } catch (error) {
+    console.error("IMAGE ERROR:", error);
+    res.status(500).json({ error: "Image generation failed" });
+  }
+});
+
+// ================= HEALTH CHECK =================
+app.get("/health", (req, res) => {
+  res.json({ status: "ok" });
+});
+
+// ================= START =================
 app.listen(3000, () => console.log("SERVER RUNNING"));

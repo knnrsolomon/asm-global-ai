@@ -376,33 +376,34 @@ function renderChat() {
   const messages = chats[mode][currentChatId].messages;
 
   messages.forEach(m => {
-    chatDiv.innerHTML += `
-      <div class="msg ${m.role}">
-        <div class="bubble">${m.text}</div>
-      </div>
-    `;
+    const div = document.createElement("div");
+    div.className = "msg " + m.role;
+
+    const bubble = document.createElement("div");
+    bubble.className = "bubble";
+
+    // 🔥 ALLOW HTML (for images)
+    bubble.innerHTML = m.text;
+
+    div.appendChild(bubble);
+    chatDiv.appendChild(div);
   });
 }
-async function send() {
+
+ async function send() {
   const input = document.getElementById("input");
   let text = input.value.trim();
 
   if (!isLoggedIn) return alert("Login first");
-
-  // ✅ GUARANTEE STRING (NO NULL EVER)
-  if (!text) text = "";
-
-  // 🚫 Prevent empty requests completely
-  if (text === "") return;
+  if (!text) return;
 
   if (!currentChatId) newChat();
 
   const chat = chats[mode][currentChatId];
 
   // Save user message
-  chat.messages.push({ role:"user", text });
+  chat.messages.push({ role: "user", text });
 
-  // Auto title
   if (!chat.title) {
     chat.title = text.substring(0, 30);
   }
@@ -412,25 +413,54 @@ async function send() {
 
   input.value = "";
 
-  const res = await fetch("/chat", {
-    method:"POST",
-    credentials:"include",
-    headers:{"Content-Type":"application/json"},
-    body: JSON.stringify({
-      message: text || " ",   // 🔥 CRITICAL FIX
-      mode: mode
-    })
-  });
+  try {
 
-  const data = await res.json();
+    // 🔥 IMAGE DETECTION (SMART SWITCH)
+    if (text.toLowerCase().includes("image") || text.toLowerCase().includes("generate")) {
 
-  chat.messages.push({
-    role:"ai",
-    text: data.reply || data.error || "No response"
-  });
+      const res = await fetch("/api/generate-image", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ prompt: text })
+      });
+
+      const data = await res.json();
+
+      chat.messages.push({
+        role: "ai",
+        text: `<img src="${data.imageUrl}" style="max-width:250px;border-radius:10px;">`
+      });
+
+    } else {
+
+      const res = await fetch("/chat", {
+        method: "POST",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          message: text,
+          mode: mode
+        })
+      });
+
+      const data = await res.json();
+
+      chat.messages.push({
+        role: "ai",
+        text: data.reply || data.error || "No response"
+      });
+    }
+
+  } catch (err) {
+    console.error(err);
+    chat.messages.push({
+      role: "ai",
+      text: "⚠️ Error processing request"
+    });
+  }
 
   renderChat();
-}
+} 
 
 async function login() {
   const res = await fetch("/login", {

@@ -2,16 +2,14 @@ FROM node:20
 
 WORKDIR /app
 
-# copy backend
-COPY backend/package*.json ./backend/
-RUN cd backend && npm install
+# copy entire project cleanly
+COPY . .
 
-# copy everything
-COPY backend ./backend
-COPY frontend ./frontend
-
-# move into backend runtime
+# go into backend
 WORKDIR /app/backend
+
+# install dependencies
+RUN npm install
 
 EXPOSE 3000
 

@@ -7,6 +7,7 @@ import jwt from "jsonwebtoken";
 import crypto from "crypto";
 import { initDB } from "./db.js";
 import path from "path";
+import OpenAI from "openai";
 
 dotenv.config();
 
@@ -27,7 +28,16 @@ let db;
   console.log("DB ready");
 })();
 
-// auth middleware
+// ===============================
+// OPENAI INIT
+// ===============================
+const client = new OpenAI({
+  apiKey: process.env.OPENAI_API_KEY
+});
+
+// ===============================
+// AUTH MIDDLEWARE
+// ===============================
 function auth(req, res, next) {
   const token = req.cookies.token;
   if (!token) return res.json({ loggedIn: false });
@@ -40,6 +50,10 @@ function auth(req, res, next) {
     return res.json({ loggedIn: false });
   }
 }
+
+// ===============================
+// AUTH ROUTES
+// ===============================
 
 // signup
 app.post("/signup", async (req, res) => {
@@ -72,11 +86,11 @@ app.post("/login", async (req, res) => {
   const token = jwt.sign({ id: user.id }, "secret");
 
   res.cookie("token", token, {
-  httpOnly: true,
-  sameSite: "lax",
-  secure: false,   // 🔥 VERY IMPORTANT (no https)
-  path: "/"
-});
+    httpOnly: true,
+    sameSite: "lax",
+    secure: false,
+    path: "/"
+  });
 
   res.json({ success: true });
 });
@@ -84,12 +98,12 @@ app.post("/login", async (req, res) => {
 // logout
 app.post("/logout", (req, res) => {
   res.cookie("token", "", {
-  httpOnly: true,
-  sameSite: "lax",
-  secure: false,
-  expires: new Date(0),
-  path: "/"
-});
+    httpOnly: true,
+    sameSite: "lax",
+    secure: false,
+    expires: new Date(0),
+    path: "/"
+  });
   res.json({ success: true });
 });
 
@@ -98,12 +112,10 @@ app.get("/me", auth, (req, res) => {
   if (req.userId) return res.json({ loggedIn: true });
   res.json({ loggedIn: false });
 });
-import OpenAI from "openai";
 
-const client = new OpenAI({
-  apiKey: process.env.OPENAI_API_KEY
-});
-
+// ===============================
+// AI PROMPTS
+// ===============================
 function getPrompt(mode) {
   if (mode === "spiritlynk") return "You are SpiritLynk AI. Guide spiritually.";
   if (mode === "rgi") return "You are RisingGem AI. Teach clearly.";
@@ -111,19 +123,59 @@ function getPrompt(mode) {
   return "You are ASM Core AI.";
 }
 
+// ===============================
+// CHAT ROUTE
+// ===============================
 app.post("/chat", auth, async (req, res) => {
-  const { message, mode } = req.body;
+  try {
+    const { message, mode } = req.body;
 
-  const response = await client.chat.completions.create({
-    model: "gpt-4.1-mini",
-    messages: [
-      { role: "system", content: getPrompt(mode) },
-      { role: "user", content: message }
-    ]
-  });
+    const response = await client.chat.completions.create({
+      model: "gpt-4.1-mini",
+      messages: [
+        { role: "system", content: getPrompt(mode) },
+        { role: "user", content: message }
+      ]
+    });
 
-  res.json({
-    reply: response.choices[0].message.content
-  });
+    res.json({
+      reply: response.choices[0].message.content
+    });
+
+  } catch (error) {
+    console.error("CHAT ERROR:", error);
+    res.status(500).json({ error: "Chat failed" });
+  }
 });
+
+// ===============================
+// IMAGE GENERATION ROUTE
+// ===============================
+app.post("/api/generate-image", async (req, res) => {
+  try {
+    const { prompt } = req.body;
+
+    if (!prompt) {
+      return res.status(400).json({ error: "Prompt is required" });
+    }
+
+    const response = await client.images.generate({
+      model: "gpt-image-1",
+      prompt: prompt,
+      size: "1024x1024"
+    });
+
+    const imageUrl = response.data[0].url;
+
+    res.json({ imageUrl });
+
+  } catch (error) {
+    console.error("IMAGE ERROR:", error);
+    res.status(500).json({ error: "Image generation failed" });
+  }
+});
+
+// ===============================
+// SERVER
+// ===============================
 app.listen(3000, () => console.log("SERVER RUNNING"));
