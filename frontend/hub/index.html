@@ -9,34 +9,68 @@
       margin:0;
       display:flex;
       height:100vh;
-      font-family: Arial, sans-serif;
+      font-family: Arial;
       background:#0f172a;
       color:white;
     }
 
     .sidebar {
-      width:240px;
+      width:260px;
       background:#020617;
-      padding:20px;
+      padding:15px;
+      display:flex;
+      flex-direction:column;
     }
 
-    .sidebar h2 {
-      margin-bottom:20px;
-    }
-
-    .sidebar button {
-      width:100%;
+    .mode-btn {
       padding:10px;
-      margin-bottom:10px;
+      margin-bottom:8px;
       border:none;
       background:#1e293b;
       color:white;
-      cursor:pointer;
       border-radius:6px;
+      cursor:pointer;
     }
 
-    .sidebar button.active {
+    .mode-btn.active {
       background:#3b82f6;
+    }
+
+    .chat-list {
+      flex:1;
+      margin-top:10px;
+      overflow:auto;
+    }
+
+    .chat-item {
+      display:flex;
+      justify-content:space-between;
+      align-items:center;
+      padding:8px;
+      border-radius:6px;
+      margin-bottom:5px;
+      background:#020617;
+    }
+
+    .chat-item:hover {
+      background:#1e293b;
+    }
+
+    .chat-title {
+      flex:1;
+      cursor:pointer;
+    }
+
+    .actions button {
+      margin-left:5px;
+      background:none;
+      border:none;
+      color:white;
+      cursor:pointer;
+    }
+
+    .profile {
+      margin-top:auto;
     }
 
     .main {
@@ -52,10 +86,6 @@
       justify-content:space-between;
     }
 
-    .mode {
-      color:#3b82f6;
-    }
-
     .chat {
       flex:1;
       padding:20px;
@@ -67,29 +97,22 @@
       margin-bottom:10px;
     }
 
-    .msg.user {
-      justify-content:flex-end;
-    }
+    .msg.user { justify-content:flex-end; }
 
     .bubble {
       max-width:60%;
-      padding:10px 14px;
+      padding:10px;
       border-radius:12px;
     }
 
-    .user .bubble {
-      background:#3b82f6;
-    }
-
-    .ai .bubble {
-      background:#1e293b;
-    }
+    .user .bubble { background:#3b82f6; }
+    .ai .bubble { background:#1e293b; }
 
     .inputBox {
       padding:15px;
-      background:#020617;
       display:flex;
       gap:10px;
+      background:#020617;
     }
 
     input {
@@ -99,29 +122,40 @@
       border-radius:6px;
     }
 
-    button.send {
-      padding:10px 15px;
-      background:#3b82f6;
-      border:none;
-      color:white;
-      border-radius:6px;
-      cursor:pointer;
-    }
-
     #auth {
       position:fixed;
       inset:0;
+      background:#0f172a;
       display:flex;
-      flex-direction:column;
       justify-content:center;
       align-items:center;
-      background:#0f172a;
+      z-index:999;
     }
 
-    #auth input {
-      margin:5px;
+    .auth-box {
+      background:#020617;
+      padding:30px;
+      border-radius:10px;
+      width:300px;
+      text-align:center;
+    }
+
+    .auth-box input {
+      width:100%;
+      margin:10px 0;
       padding:10px;
-      width:250px;
+      border-radius:6px;
+      border:none;
+    }
+
+    .auth-box button {
+      width:100%;
+      margin-top:10px;
+      padding:10px;
+      border:none;
+      border-radius:6px;
+      background:#3b82f6;
+      color:white;
     }
   </style>
 </head>
@@ -129,57 +163,192 @@
 <body>
 
 <div id="auth">
-  <h2>ASM GLOBAL AI</h2>
-  <input id="email" placeholder="Email">
-  <input id="password" type="password" placeholder="Password">
-  <button onclick="login()">Login</button>
-  <button onclick="signup()">Signup</button>
-  <p id="msg"></p>
+  <div class="auth-box">
+    <h3>ASM GLOBAL AI</h3>
+    <input id="email" placeholder="Email">
+    <input id="password" type="password" placeholder="Password">
+    <button onclick="login()">Login</button>
+    <button onclick="signup()">Signup</button>
+    <p id="msg"></p>
+  </div>
 </div>
 
 <div class="sidebar">
-  <h2>ASM AI</h2>
-  <button class="active" onclick="setMode('asm', this)">Core AI</button>
-  <button onclick="setMode('spiritlynk', this)">SpiritLynk</button>
-  <button onclick="setMode('rgi', this)">RisingGem</button>
-  <button onclick="setMode('finance', this)">Finance</button>
+
+  <button class="mode-btn active" onclick="setMode('asm', this)">Core AI</button>
+  <button class="mode-btn" onclick="setMode('spiritlynk', this)">SpiritLynk</button>
+  <button class="mode-btn" onclick="setMode('rgi', this)">RisingGem</button>
+  <button class="mode-btn" onclick="setMode('finance', this)">Finance</button>
+
+  <button onclick="newChat()">➕ New Chat</button>
+
+  <div id="chatList" class="chat-list"></div>
+
+  <div class="profile">
+    <div id="userEmail">User</div>
+    <button onclick="logout()">Logout</button>
+  </div>
+
 </div>
 
 <div class="main">
 
   <div class="topbar">
     <div>Dashboard</div>
-    <div class="mode" id="modeLabel">Mode: asm</div>
+    <div id="modeLabel">Mode: asm</div>
   </div>
 
   <div id="chat" class="chat"></div>
 
   <div class="inputBox">
     <input id="input" placeholder="Type a message...">
-    <button class="send" onclick="send()">Send</button>
+    <button onclick="send()">Send</button>
   </div>
 
 </div>
 
 <script>
 
+let isLoggedIn = false;
 let mode = "asm";
+let chats = {};
+let currentChatId = null;
 
 function setMode(m, el) {
   mode = m;
   document.getElementById("modeLabel").innerText = "Mode: " + m;
 
-  document.querySelectorAll(".sidebar button").forEach(b => b.classList.remove("active"));
+  document.querySelectorAll(".mode-btn").forEach(b => b.classList.remove("active"));
   el.classList.add("active");
+
+  if (!chats[mode] || Object.keys(chats[mode]).length === 0) {
+    newChat();
+  } else {
+    currentChatId = Object.keys(chats[mode])[0];
+    renderChat();
+    loadChatList();
+  }
 }
 
-async function checkAuth() {
-  const res = await fetch("/me", { credentials:"include" });
+function newChat() {
+  const id = Date.now();
+  if (!chats[mode]) chats[mode] = {};
+  chats[mode][id] = { messages: [], title: null };
+  currentChatId = id;
+
+  renderChat();
+  loadChatList();
+}
+
+function loadChatList() {
+  const list = document.getElementById("chatList");
+  list.innerHTML = "";
+
+  if (!chats[mode]) return;
+
+  Object.keys(chats[mode]).forEach(id => {
+    const chat = chats[mode][id];
+
+    const div = document.createElement("div");
+    div.className = "chat-item";
+
+    const title = document.createElement("div");
+    title.className = "chat-title";
+    title.innerText = chat.title || "New Chat";
+
+    title.onclick = () => {
+      currentChatId = id;
+      renderChat();
+    };
+
+    const actions = document.createElement("div");
+    actions.className = "actions";
+
+    const rename = document.createElement("button");
+    rename.innerText = "✏️";
+    rename.onclick = () => {
+      const name = prompt("Rename chat:");
+      if (name) {
+        chat.title = name;
+        loadChatList();
+      }
+    };
+
+    const del = document.createElement("button");
+    del.innerText = "🗑";
+    del.onclick = () => {
+      if (confirm("Delete chat?")) {
+        delete chats[mode][id];
+        currentChatId = null;
+        renderChat();
+        loadChatList();
+      }
+    };
+
+    actions.appendChild(rename);
+    actions.appendChild(del);
+
+    div.appendChild(title);
+    div.appendChild(actions);
+
+    list.appendChild(div);
+  });
+}
+
+function renderChat() {
+  const chatDiv = document.getElementById("chat");
+  chatDiv.innerHTML = "";
+
+  if (!currentChatId) return;
+
+  const messages = chats[mode][currentChatId].messages;
+
+  messages.forEach(m => {
+    chatDiv.innerHTML += `
+      <div class="msg ${m.role}">
+        <div class="bubble">${m.text}</div>
+      </div>
+    `;
+  });
+}
+
+async function send() {
+  const input = document.getElementById("input");
+  const text = input.value.trim();
+
+  if (!isLoggedIn) return alert("Login first");
+  if (!text) return;
+
+  if (!currentChatId) newChat();
+
+  const chat = chats[mode][currentChatId];
+
+  chat.messages.push({ role:"user", text });
+
+  if (!chat.title) {
+    chat.title = text.substring(0, 30);
+  }
+
+  renderChat();
+  loadChatList();
+
+  input.value = "";
+
+  const res = await fetch("/chat", {
+    method:"POST",
+    credentials:"include",
+    headers:{"Content-Type":"application/json"},
+    body: JSON.stringify({ message:text, mode })
+  });
+
   const data = await res.json();
 
-  if (data.loggedIn) {
-    document.getElementById("auth").style.display = "none";
-  }
+  chat.messages.push({
+    role:"ai",
+    text: data.reply || data.error || "No response"
+  });
+
+  renderChat();
 }
 
 async function login() {
@@ -195,8 +364,12 @@ async function login() {
 
   const data = await res.json();
 
-  if (data.success) checkAuth();
-  else msg.innerText = data.error;
+  if (data.success) {
+    document.getElementById("auth").style.display = "none";
+    checkAuth();
+  } else {
+    msg.innerText = data.error;
+  }
 }
 
 async function signup() {
@@ -213,50 +386,25 @@ async function signup() {
   msg.innerText = data.success ? "Signup successful" : data.error;
 }
 
-async function send() {
-  const text = input.value.trim();
-  if (!text) return;
-
-  input.value = "";
-
-  chat.innerHTML += `
-    <div class="msg user">
-      <div class="bubble">${text}</div>
-    </div>
-  `;
-
-  const id = Date.now();
-
-  chat.innerHTML += `
-    <div class="msg ai" id="load-${id}">
-      <div class="bubble">Typing...</div>
-    </div>
-  `;
-
-  chat.scrollTop = chat.scrollHeight;
-
-  const res = await fetch("/chat", {
-    method:"POST",
-    credentials:"include",
-    headers:{"Content-Type":"application/json"},
-    body: JSON.stringify({ message: text, mode })
-  });
-
+async function checkAuth() {
+  const res = await fetch("/me", { credentials:"include" });
   const data = await res.json();
 
-  document.getElementById(`load-${id}`).outerHTML = `
-    <div class="msg ai">
-      <div class="bubble">${data.reply}</div>
-    </div>
-  `;
+  isLoggedIn = data.loggedIn;
 
-  chat.scrollTop = chat.scrollHeight;
+  if (!data.loggedIn) {
+    document.getElementById("auth").style.display = "flex";
+    return;
+  }
+
+  document.getElementById("auth").style.display = "none";
+  document.getElementById("userEmail").innerText = data.email;
 }
 
-// ENTER key support
-input.addEventListener("keypress", function(e) {
-  if (e.key === "Enter") send();
-});
+async function logout() {
+  await fetch("/logout", { method:"POST", credentials:"include" });
+  location.reload();
+}
 
 checkAuth();
 

@@ -20,11 +20,14 @@ app.use(cookieParser());
 // ================= PATH =================
 const __dirname = new URL('.', import.meta.url).pathname;
 
+// 🔥 FIXED PATH TO FRONTEND
+const frontendPath = path.join(__dirname, "../frontend/hub");
+
 // ================= STATIC =================
-app.use(express.static(path.join(__dirname, "hub")));
+app.use(express.static(frontendPath));
 
 app.get("/", (req, res) => {
-  res.sendFile(path.join(__dirname, "hub/index.html"));
+  res.sendFile(path.join(frontendPath, "index.html"));
 });
 
 // ================= OPENAI =================
@@ -64,14 +67,19 @@ function detectMode(req) {
 
 // ================= PROMPTS =================
 function getSystemPrompt(mode) {
-  const prompts = {
-    spiritlynk: "You are SpiritLynk AI. Guide users in spiritual growth, purpose, and destiny.",
-    rgi: "You are RisingGem AI. Teach clearly and mentor users deeply.",
-    finance: "You are Finance AI. Help users with money, budgeting, and insights.",
-    asm: "You are ASM Core AI. Help with life and general intelligence."
-  };
+  switch (mode) {
+    case "spiritlynk":
+      return "You are SpiritLynk AI. Help users grow spiritually, discover purpose, and align with destiny.";
 
-  return prompts[mode] || prompts.asm;
+    case "rgi":
+      return "You are RisingGem AI. Teach clearly, mentor users, and explain concepts deeply like a coach.";
+
+    case "finance":
+      return "You are Finance AI. Help users manage money, budgeting, business, and financial growth.";
+
+    default:
+      return "You are ASM Core AI. Assist with general intelligence, guidance, and problem-solving.";
+  }
 }
 
 // ================= AUTH =================
@@ -91,7 +99,7 @@ function auth(req, res, next) {
   }
 }
 
-// ================= AUTH =================
+// ================= SIGNUP =================
 app.post("/signup", async (req, res) => {
   const { email, password } = req.body;
 
@@ -114,6 +122,7 @@ app.post("/signup", async (req, res) => {
   }
 });
 
+// ================= LOGIN =================
 app.post("/login", async (req, res) => {
   const { email, password } = req.body;
 
@@ -140,25 +149,32 @@ app.post("/login", async (req, res) => {
   res.json({ success: true });
 });
 
+// ================= LOGOUT =================
 app.post("/logout", (req, res) => {
-  res.cookie("token", "", {
+  res.clearCookie("token", {
     httpOnly: true,
-    sameSite: "lax",
-    expires: new Date(0),
     path: "/"
   });
 
   res.json({ success: true });
 });
 
-app.get("/me", (req, res) => {
+// ================= SESSION =================
+app.get("/me", async (req, res) => {
   const token = req.cookies.token;
 
   if (!token) return res.json({ loggedIn: false });
 
   try {
-    jwt.verify(token, process.env.JWT_SECRET || "secret");
-    res.json({ loggedIn: true });
+    const decoded = jwt.verify(token, process.env.JWT_SECRET || "secret");
+
+    const user = await db.get("SELECT email FROM users WHERE id=?", [decoded.id]);
+
+    res.json({
+      loggedIn: true,
+      email: user?.email || "User"
+    });
+
   } catch {
     res.json({ loggedIn: false });
   }

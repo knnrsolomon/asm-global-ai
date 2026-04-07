@@ -1,0 +1,24 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: asm-ai
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: asm-ai
+  template:
+    metadata:
+      labels:
+        app: asm-ai
+    spec:
+      containers:
+      - name: asm-ai
+        image: knnrsolomon/asm-ai-backend:latest
+        ports:
+        - containerPort: 3000
+        env:
+        - name: OPENAI_API_KEY
+          value: "PUT_YOUR_REAL_KEY_HERE"
+        - name: JWT_SECRET
+          value: "supersecret"
