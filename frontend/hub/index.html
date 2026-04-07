@@ -386,12 +386,58 @@ function renderChat() {
     const bubble = document.createElement("div");
     bubble.className = "bubble";
 
-    // 🔥 ALLOW HTML (for images)
-    bubble.innerHTML = m.text;
+    // container
+    const wrapper = document.createElement("div");
+    wrapper.style.display = "flex";
+    wrapper.style.flexDirection = "column";
+    wrapper.style.gap = "6px";
 
+    // message content
+    const content = document.createElement("div");
+    content.innerHTML = m.text;
+
+    // copy button
+    const copyBtn = document.createElement("button");
+    copyBtn.innerText = "📋 Copy";
+    copyBtn.style.fontSize = "11px";
+    copyBtn.style.background = "#334155";
+    copyBtn.style.color = "white";
+    copyBtn.style.border = "none";
+    copyBtn.style.borderRadius = "6px";
+    copyBtn.style.padding = "4px";
+    copyBtn.style.cursor = "pointer";
+
+    copyBtn.onclick = () => {
+  const temp = document.createElement("div");
+  temp.innerHTML = m.text;
+
+  copyText(temp.innerText);
+
+  // 🔥 user feedback
+  copyBtn.innerText = "✅ Copied";
+
+  setTimeout(() => {
+    copyBtn.innerText = "📋 Copy";
+  }, 1000);
+};
+
+    wrapper.appendChild(content);
+    wrapper.appendChild(copyBtn);
+
+    bubble.appendChild(wrapper);
     div.appendChild(bubble);
     chatDiv.appendChild(div);
   });
+
+  // 🔥 attach voice button handlers safely
+  setTimeout(() => {
+    document.querySelectorAll(".play-btn").forEach(btn => {
+      btn.onclick = () => {
+        const text = btn.parentElement.querySelector(".ai-text")?.innerText;
+        if (text) playVoice(text);
+      };
+    });
+  }, 0);
 }
 
  async function send() {
@@ -471,8 +517,8 @@ chat.messages.push({
   role: "ai",
   text: `
     <div style="display:flex;flex-direction:column;gap:6px;">
-      <div>${replyText}</div>
-      <button onclick="playVoice(\`${replyText}\`)"
+      <div class="ai-text">${replyText}</div>
+      <button class="play-btn"
         style="padding:4px;border:none;border-radius:6px;background:#10b981;color:white;cursor:pointer;font-size:12px;">
         🔊 Play
       </button>
@@ -669,6 +715,37 @@ async function playVoice(text) {
   } catch (err) {
     console.error("Voice error:", err);
   }
+}
+
+function copyText(text) {
+  // try modern API first
+  if (navigator.clipboard) {
+    navigator.clipboard.writeText(text).then(() => {
+      console.log("Copied");
+    }).catch(() => fallbackCopy(text));
+  } else {
+    fallbackCopy(text);
+  }
+}
+
+// fallback for HTTP / older browsers
+function fallbackCopy(text) {
+  const textarea = document.createElement("textarea");
+  textarea.value = text;
+  textarea.style.position = "fixed";
+  textarea.style.left = "-9999px";
+
+  document.body.appendChild(textarea);
+  textarea.select();
+
+  try {
+    document.execCommand("copy");
+    console.log("Copied (fallback)");
+  } catch (err) {
+    console.error("Copy failed", err);
+  }
+
+  document.body.removeChild(textarea);
 }
 
 checkAuth();
