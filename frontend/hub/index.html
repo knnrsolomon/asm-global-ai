@@ -71,6 +71,20 @@
 
     .profile {
       margin-top:auto;
+      position:relative;
+    }
+
+    .profile-menu {
+      display:none;
+      position:absolute;
+      bottom:60px;
+      left:0;
+      width:220px;
+      background:white;
+      color:black;
+      border-radius:12px;
+      padding:10px;
+      box-shadow:0 10px 30px rgba(0,0,0,0.3);
     }
 
     .main {
@@ -184,9 +198,28 @@
 
   <div id="chatList" class="chat-list"></div>
 
+  <!-- PROFILE -->
   <div class="profile">
-    <div id="userEmail">User</div>
-    <button onclick="logout()">Logout</button>
+
+    <div onclick="toggleProfileMenu()" style="display:flex;align-items:center;cursor:pointer;">
+      <div style="width:36px;height:36px;border-radius:50%;background:#3b82f6;display:flex;align-items:center;justify-content:center;margin-right:10px;">
+        <span id="avatarInitial">U</span>
+      </div>
+      <div id="userEmail">User</div>
+    </div>
+
+    <div id="profileMenu" class="profile-menu">
+      <div>➕ Add another account</div>
+      <hr>
+      <div>⬆️ Upgrade plan</div>
+      <div>🎨 Personalization</div>
+      <div>👤 Profile</div>
+      <div>⚙️ Settings</div>
+      <hr>
+      <div>❓ Help</div>
+      <div onclick="logout()">🚪 Log out</div>
+    </div>
+
   </div>
 
 </div>
@@ -194,16 +227,46 @@
 <div class="main">
 
   <div class="topbar">
-    <div>Dashboard</div>
+    <div>Kojo AI</div>
     <div id="modeLabel">Mode: asm</div>
   </div>
 
   <div id="chat" class="chat"></div>
 
   <div class="inputBox">
-    <input id="input" placeholder="Type a message...">
-    <button onclick="send()">Send</button>
-  </div>
+
+  <!-- + BUTTON -->
+  <button onclick="toggleAttachMenu()" style="padding:10px;border-radius:6px;background:#1e293b;color:white;">+</button>
+
+  <!-- HIDDEN FILE INPUT -->
+  <input type="file" id="fileInput" style="display:none">
+
+  <!-- TEXT -->
+  <input id="input" placeholder="Type a message...">
+
+  <!-- MIC -->
+  <button onclick="startVoice()" style="padding:10px;border-radius:6px;background:#1e293b;color:white;">🎤</button>
+
+  <!-- SEND -->
+  <button onclick="send()">Send</button>
+
+</div>
+
+<!-- ATTACH MENU -->
+<div id="attachMenu" style="
+  display:none;
+  position:fixed;
+  bottom:80px;
+  left:300px;
+  background:white;
+  color:black;
+  padding:10px;
+  border-radius:10px;
+  width:200px;
+">
+  <div onclick="triggerFile()">📎 Add photos & files</div>
+  <div onclick="alert('Image generation later')">🖼 Create image</div>
+</div>
 
 </div>
 
@@ -213,6 +276,11 @@ let isLoggedIn = false;
 let mode = "asm";
 let chats = {};
 let currentChatId = null;
+
+function toggleProfileMenu() {
+  const menu = document.getElementById("profileMenu");
+  menu.style.display = menu.style.display === "block" ? "none" : "block";
+}
 
 function setMode(m, el) {
   mode = m;
@@ -262,7 +330,6 @@ function loadChatList() {
     };
 
     const actions = document.createElement("div");
-    actions.className = "actions";
 
     const rename = document.createElement("button");
     rename.innerText = "✏️";
@@ -311,20 +378,26 @@ function renderChat() {
     `;
   });
 }
-
 async function send() {
   const input = document.getElementById("input");
-  const text = input.value.trim();
+  let text = input.value.trim();
 
   if (!isLoggedIn) return alert("Login first");
-  if (!text) return;
+
+  // ✅ GUARANTEE STRING (NO NULL EVER)
+  if (!text) text = "";
+
+  // 🚫 Prevent empty requests completely
+  if (text === "") return;
 
   if (!currentChatId) newChat();
 
   const chat = chats[mode][currentChatId];
 
+  // Save user message
   chat.messages.push({ role:"user", text });
 
+  // Auto title
   if (!chat.title) {
     chat.title = text.substring(0, 30);
   }
@@ -338,7 +411,10 @@ async function send() {
     method:"POST",
     credentials:"include",
     headers:{"Content-Type":"application/json"},
-    body: JSON.stringify({ message:text, mode })
+    body: JSON.stringify({
+      message: text || " ",   // 🔥 CRITICAL FIX
+      mode: mode
+    })
   });
 
   const data = await res.json();
@@ -399,13 +475,38 @@ async function checkAuth() {
 
   document.getElementById("auth").style.display = "none";
   document.getElementById("userEmail").innerText = data.email;
+  document.getElementById("avatarInitial").innerText =
+    data.email ? data.email.charAt(0).toUpperCase() : "U";
 }
 
 async function logout() {
   await fetch("/logout", { method:"POST", credentials:"include" });
   location.reload();
 }
+function toggleAttachMenu() {
+  const menu = document.getElementById("attachMenu");
+  menu.style.display = menu.style.display === "block" ? "none" : "block";
+}
 
+function triggerFile() {
+  document.getElementById("fileInput").click();
+}
+function startVoice() {
+  if (!('webkitSpeechRecognition' in window)) {
+    alert("Voice not supported on this browser");
+    return;
+  }
+
+  const recognition = new webkitSpeechRecognition();
+  recognition.lang = "en-US";
+
+  recognition.onresult = function(event) {
+    const text = event.results[0][0].transcript;
+    document.getElementById("input").value = text;
+  };
+
+  recognition.start();
+}
 checkAuth();
 
 </script>
