@@ -465,10 +465,20 @@ function renderChat() {
 
       const data = await res.json();
 
-      chat.messages.push({
-        role: "ai",
-        text: data.reply || data.error || "No response"
-      });
+    const replyText = data.reply || data.error || "No response";
+
+chat.messages.push({
+  role: "ai",
+  text: `
+    <div style="display:flex;flex-direction:column;gap:6px;">
+      <div>${replyText}</div>
+      <button onclick="playVoice(\`${replyText}\`)"
+        style="padding:4px;border:none;border-radius:6px;background:#10b981;color:white;cursor:pointer;font-size:12px;">
+        🔊 Play
+      </button>
+    </div>
+  `
+});
     }
 
   } catch (err) {
@@ -640,6 +650,27 @@ function activateImageMode() {
 
   document.getElementById("input").focus();
 }
+async function playVoice(text) {
+  try {
+    const res = await fetch("/api/voice", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify({ text })
+    });
+
+    const blob = await res.blob();
+    const url = URL.createObjectURL(blob);
+
+    const audio = new Audio(url);
+    audio.play();
+
+  } catch (err) {
+    console.error("Voice error:", err);
+  }
+}
+
 checkAuth();
 
 </script>

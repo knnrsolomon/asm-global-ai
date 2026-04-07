@@ -221,6 +221,31 @@ app.post("/api/generate-image", async (req, res) => {
   }
 });
 
+// ================= VOICE (TEXT → SPEECH) =================
+app.post("/api/voice", async (req, res) => {
+  try {
+    const { text } = req.body;
+
+    if (!text) {
+      return res.status(400).json({ error: "Text is required" });
+    }
+
+    const audio = await client.audio.speech.create({
+      model: "gpt-4o-mini-tts",
+      voice: "alloy", // can change later per mode
+      input: text
+    });
+
+    const buffer = Buffer.from(await audio.arrayBuffer());
+
+    res.setHeader("Content-Type", "audio/mpeg");
+    res.send(buffer);
+
+  } catch (err) {
+    console.error("VOICE ERROR:", err);
+    res.status(500).json({ error: "Voice generation failed" });
+  }
+});
 // ================= HEALTH CHECK =================
 app.get("/health", (req, res) => {
   res.json({ status: "ok" });
