@@ -12,8 +12,11 @@ import OpenAI from "openai";
 dotenv.config();
 
 const app = express();
-app.use(cors({ origin: true, credentials: true }));
-app.use(express.json());
+app.use(cors({
+  origin: "http://ai.asmglobal.cloud",
+  credentials: true
+}));
+app.use(express.json({ limit: "50mb" }));
 app.use(cookieParser());
 
 const __dirname = new URL('.', import.meta.url).pathname;
@@ -71,6 +74,7 @@ app.post("/signup", async (req, res) => {
 });
 
 // LOGIN
+// LOGIN
 app.post("/login", async (req, res) => {
   const { email, password } = req.body;
 
@@ -83,11 +87,11 @@ app.post("/login", async (req, res) => {
   const token = jwt.sign({ id: user.id }, "secret");
 
   res.cookie("token", token, {
-    httpOnly: true,
-    sameSite: "lax",
-    secure: false,
-    path: "/"
-  });
+  httpOnly: true,
+  sameSite: "lax",
+  secure: false,
+  path: "/"
+});
 
   res.json({ success: true });
 });
@@ -166,21 +170,32 @@ app.post("/chat", auth, async (req, res) => {
   try {
     const { message, mode } = req.body;
 
+    if (!message) {
+      return res.status(400).json({ error: "No message provided" });
+    }
+
     const response = await client.chat.completions.create({
       model: "gpt-4.1-mini",
       messages: [
         { role: "system", content: getPrompt(mode) },
-        { role: "user", content: message || " " }
+        { role: "user", content: message }
       ]
     });
 
-    res.json({
-      reply: response.choices[0].message.content
-    });
+    const reply = response.choices?.[0]?.message?.content;
 
-  } catch (error) {
-    console.error("CHAT ERROR:", error);
-    res.status(500).json({ error: "Chat failed" });
+    if (!reply) {
+      return res.json({ error: "No AI response" });
+    }
+
+    res.json({ reply });
+
+  } catch (err) {
+    console.error("CHAT ERROR:", err.message);
+
+    res.status(500).json({
+      error: "Chat failed"
+    });
   }
 });
 
@@ -252,4 +267,88 @@ app.get("/health", (req, res) => {
 });
 
 // ================= START =================
+// ================= CHAT PERSISTENCE =================
+
+// CREATE CHAT
+app.post("/api/chat/create", auth, async (req, res) => {
+  try {
+    const id = crypto.randomUUID();
+    const { mode } = req.body;
+
+    if (!req.userId) {
+      return res.status(401).json({ error: "Unauthorized" });
+    }
+
+    await db.run(
+      "INSERT INTO chats (id, userId, mode) VALUES (?, ?, ?)",
+      [id, req.userId, mode]
+    );
+
+    res.json({ chatId: id });
+
+  } catch (err) {
+    console.error("CHAT CREATE ERROR:", err);
+    res.status(500).json({ error: "Failed to create chat" });
+  }
+});
+
+// SAVE MESSAGE
+
+app.post("/api/chat/message", auth, async (req, res) => {
+  try {
+    const { chatId, role, content } = req.body;
+
+    // 🛡️ SOFT VALIDATION (DO NOT BREAK FLOW)
+    if (!role || !content) {
+      return res.json({ success: false });
+    }
+
+    // ⚠️ chatId can be null — DO NOT CRASH
+    if (!chatId) {
+      console.warn("Skipping save: chatId missing");
+      return res.json({ success: false });
+    }
+
+    // 💾 SAFE DB WRITE (NON-BLOCKING FAILURE)
+    try {
+      await db.run(
+        "INSERT INTO messages (id, chatId, role, content) VALUES (?, ?, ?, ?)",
+        [crypto.randomUUID(), chatId, role, content]
+      );
+    } catch (dbErr) {
+      console.error("DB SAVE ERROR:", dbErr.message);
+      // ❗ Do NOT fail request
+      return res.json({ success: false });
+    }
+
+    return res.json({ success: true });
+
+  } catch (err) {
+    console.error("MESSAGE ROUTE ERROR:", err.message);
+
+    // ❗ NEVER crash frontend flow
+    return res.json({ success: false });
+  }
+});
+
+// GET CHATS
+app.get("/api/chats", auth, async (req, res) => {
+  const chats = await db.all(
+    "SELECT * FROM chats WHERE userId=? ORDER BY createdAt DESC",
+    [req.userId]
+  );
+
+  res.json(chats);
+});
+
+// GET MESSAGES
+app.get("/api/messages/:chatId", auth, async (req, res) => {
+  const messages = await db.all(
+    "SELECT * FROM messages WHERE chatId=? ORDER BY createdAt ASC",
+    [req.params.chatId]
+  );
+
+  res.json(messages);
+});
+
 app.listen(3000, () => console.log("SERVER RUNNING"));

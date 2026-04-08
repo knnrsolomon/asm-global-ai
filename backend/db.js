@@ -3,11 +3,11 @@ import { open } from "sqlite";
 
 export async function initDB() {
   const db = await open({
-    filename: "./database.sqlite",
+    filename: "/app/backend/data/database.sqlite",
     driver: sqlite3.Database,
   });
 
-  // ✅ USERS TABLE
+  // ================= USERS =================
   await db.exec(`
     CREATE TABLE IF NOT EXISTS users (
       id TEXT PRIMARY KEY,
@@ -16,7 +16,7 @@ export async function initDB() {
     );
   `);
 
-  // ✅ PROFILES TABLE (SAFE ADD)
+  // ================= PROFILES =================
   await db.exec(`
     CREATE TABLE IF NOT EXISTS profiles (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -24,6 +24,28 @@ export async function initDB() {
       name TEXT,
       avatar TEXT,
       created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+    );
+  `);
+
+  // ================= CHATS (NEW - SAFE ADD) =================
+  await db.exec(`
+    CREATE TABLE IF NOT EXISTS chats (
+      id TEXT PRIMARY KEY,
+      userId TEXT,
+      mode TEXT,
+      title TEXT,
+      createdAt DATETIME DEFAULT CURRENT_TIMESTAMP
+    );
+  `);
+
+  // ================= MESSAGES (NEW - SAFE ADD) =================
+  await db.exec(`
+    CREATE TABLE IF NOT EXISTS messages (
+      id TEXT PRIMARY KEY,
+      chatId TEXT,
+      role TEXT,
+      content TEXT,
+      createdAt DATETIME DEFAULT CURRENT_TIMESTAMP
     );
   `);
 

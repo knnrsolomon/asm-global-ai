@@ -3,7 +3,7 @@ kind: Service
 metadata:
   name: asm-ai-service
 spec:
-  type: NodePort
+  type: ClusterIP
   selector:
     app: asm-ai
   ports:

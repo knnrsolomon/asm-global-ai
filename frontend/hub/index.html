@@ -195,7 +195,14 @@
   <button class="mode-btn" onclick="setMode('finance', this)">Finance</button>
 
   <button onclick="newChat()">➕ New Chat</button>
+<button onclick="toggleImageLibrary()">🖼 Images</button>
 
+<div id="imageLibrary" style="
+  display:none;
+  margin-top:10px;
+  overflow:auto;
+  max-height:200px;
+"></div>
   <div id="chatList" class="chat-list"></div>
 
   <!-- PROFILE -->
@@ -298,24 +305,49 @@ function setMode(m, el) {
   document.querySelectorAll(".mode-btn").forEach(b => b.classList.remove("active"));
   el.classList.add("active");
 
-  if (!chats[mode] || Object.keys(chats[mode]).length === 0) {
-    newChat();
-  } else {
+  // 🔥 ONLY switch if chats already exist
+  if (chats[mode] && Object.keys(chats[mode]).length > 0) {
     currentChatId = Object.keys(chats[mode])[0];
     renderChat();
     loadChatList();
+  } else {
+    // ❌ DO NOT auto-create chat here
+    console.log("No chats yet for mode:", mode);
   }
 }
 
-function newChat() {
-  const id = Date.now();
-  if (!chats[mode]) chats[mode] = {};
-  chats[mode][id] = { messages: [], title: null };
-  currentChatId = id;
+async function newChat() {
+  if (!isLoggedIn) return alert("Login first");
 
-  renderChat();
-  loadChatList();
-}
+  try {
+    const res = await fetch("/api/chat/create", {
+      method: "POST",
+      credentials: "include",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ mode })
+    });
+
+    const data = await res.json();
+console.log("IMAGE RESPONSE:", data);
+    const id = data.chatId;
+
+    currentChatId = id;
+
+// 🔥 Immediately load messages from DB
+await loadMessages(id);
+
+// 🔥 Reload chat list from DB
+await initApp();
+
+    currentChatId = id;
+
+    renderChat();
+    loadChatList();
+
+  } catch (err) {
+    console.error("New chat error:", err);
+  }
+} 
 
 function loadChatList() {
   const list = document.getElementById("chatList");
@@ -333,10 +365,11 @@ function loadChatList() {
     title.className = "chat-title";
     title.innerText = chat.title || "New Chat";
 
-    title.onclick = () => {
-      currentChatId = id;
-      renderChat();
-    };
+    title.dataset.id = id;
+
+title.onclick = () => {
+  setActiveChat(id);
+};
 
     const actions = document.createElement("div");
 
@@ -394,7 +427,32 @@ function renderChat() {
 
     // message content
     const content = document.createElement("div");
-    content.innerHTML = m.text;
+    
+// 🔥 HANDLE IMAGE
+if (m.text.startsWith("IMAGE::")) {
+  const url = m.text.replace("IMAGE::", "");
+
+  content.innerHTML = `
+    <div style="display:flex;flex-direction:column;gap:8px;">
+      <img src="${url}" style="max-width:250px;border-radius:10px;">
+      <button onclick="downloadImage('${url}')"
+        style="padding:6px;border:none;border-radius:6px;background:#3b82f6;color:white;cursor:pointer;">
+        Download
+      </button>
+    </div>
+  `;
+} else {
+  // 🔥 NORMAL TEXT + VOICE BUTTON
+  content.innerHTML = `
+    <div style="display:flex;flex-direction:column;gap:6px;">
+      <div class="ai-text">${m.text}</div>
+      <button class="play-btn"
+        style="padding:4px;border:none;border-radius:6px;background:#10b981;color:white;cursor:pointer;font-size:12px;">
+        🔊 Play
+      </button>
+    </div>
+  `;
+}
 
     // copy button
     const copyBtn = document.createElement("button");
@@ -447,12 +505,29 @@ function renderChat() {
   if (!isLoggedIn) return alert("Login first");
   if (!text) return;
 
-  if (!currentChatId) newChat();
+  if (!currentChatId) {
+  await newChat();
 
-  const chat = chats[mode][currentChatId];
+  // 🔥 SAFETY CHECK (VERY IMPORTANT)
+  if (!currentChatId || !chats[mode][currentChatId]) {
+    console.error("Chat not ready");
+    return;
+  }
+}
 
-  // Save user message
-  chat.messages.push({ role: "user", text });
+  
+
+// 🔥 SAVE TO DATABASE
+await fetch("/api/chat/message", {
+  method: "POST",
+  credentials: "include",
+  headers: { "Content-Type": "application/json" },
+  body: JSON.stringify({
+    chatId: currentChatId,
+    role: "user",
+    content: text
+  })
+});
 
   if (!chat.title) {
     chat.title = text.substring(0, 30);
@@ -476,20 +551,20 @@ function renderChat() {
 
       const data = await res.json();
 
-      chat.messages.push({
-        role: "ai",
-        text: `
-          <div style="display:flex;flex-direction:column;gap:8px;">
-            <img src="${data.imageUrl}" style="max-width:250px;border-radius:10px;">
-            <button onclick="downloadImage('${data.imageUrl}')"
-              style="padding:6px;border:none;border-radius:6px;background:#3b82f6;color:white;cursor:pointer;">
-              Download
-            </button>
-          </div>
-        `
-      });
+      // 🔥 SAVE IMAGE TO DATABASE (REPLACES LOCAL UI PUSH)
+await fetch("/api/chat/message", {
+  method: "POST",
+  credentials: "include",
+  headers: { "Content-Type": "application/json" },
+  body: JSON.stringify({
+    chatId: currentChatId,
+    role: "assistant",
+    content: "IMAGE::" + data.imageUrl
+  })
+});
 
-      // reset image mode
+
+     // reset image mode
       imageMode = false;
 
       const btn = document.getElementById("imageModeBtn");
@@ -513,18 +588,18 @@ function renderChat() {
 
     const replyText = data.reply || data.error || "No response";
 
-chat.messages.push({
-  role: "ai",
-  text: `
-    <div style="display:flex;flex-direction:column;gap:6px;">
-      <div class="ai-text">${replyText}</div>
-      <button class="play-btn"
-        style="padding:4px;border:none;border-radius:6px;background:#10b981;color:white;cursor:pointer;font-size:12px;">
-        🔊 Play
-      </button>
-    </div>
-  `
+// 🔥 SAVE AI TEXT RESPONSE TO DATABASE
+await fetch("/api/chat/message", {
+  method: "POST",
+  credentials: "include",
+  headers: { "Content-Type": "application/json" },
+  body: JSON.stringify({
+    chatId: currentChatId,
+    role: "assistant",
+    content: replyText
+  })
 });
+
     }
 
   } catch (err) {
@@ -535,7 +610,7 @@ chat.messages.push({
     });
   }
 
-  renderChat();
+  await initApp();
 } 
 
 async function login() {
@@ -552,11 +627,12 @@ async function login() {
   const data = await res.json();
 
   if (data.success) {
-    document.getElementById("auth").style.display = "none";
-    checkAuth();
-  } else {
-    msg.innerText = data.error;
-  }
+  // 🔥 FORCE CLEAN RELOAD (VERY IMPORTANT)
+  location.reload();
+
+} else {
+  msg.innerText = data.error;
+}
 }
 
 async function signup() {
@@ -585,18 +661,17 @@ async function checkAuth() {
   }
 
   document.getElementById("auth").style.display = "none";
-  // fetch profile also
-const profileRes = await fetch("/profile", { credentials:"include" });
-const profile = await profileRes.json();
 
-const displayName = profile.name || data.email;
+  // fetch profile
+  const profileRes = await fetch("/profile", { credentials:"include" });
+  const profile = await profileRes.json();
 
-// ✅ SHOW ONLY ONE LINE
-document.getElementById("userEmail").innerText = displayName;
+  const displayName = profile.name || data.email;
 
-// ✅ AVATAR USE NAME FIRST
-document.getElementById("avatarInitial").innerText =
-  displayName.charAt(0).toUpperCase();
+  document.getElementById("userEmail").innerText = displayName;
+
+  document.getElementById("avatarInitial").innerText =
+    displayName.charAt(0).toUpperCase();
 }
 
 async function logout() {
@@ -748,7 +823,156 @@ function fallbackCopy(text) {
   document.body.removeChild(textarea);
 }
 
-checkAuth();
+async function initApp() {
+  await checkAuth();
+
+  if (!isLoggedIn) return;
+
+  try {
+    const res = await fetch("/api/chats", {
+      credentials: "include"
+    });
+
+    const dbChats = await res.json();
+
+    // 🔥 RESET FULL STATE (NOT MODE ONLY)
+    chats = {};
+
+    // 🔥 BUILD FROM DATABASE ONLY
+    for (const chat of dbChats) {
+      const chatId = chat.id;
+      // 🔥 FORCE ALL CHATS INTO CURRENT MODE (TEMP FIX)
+const chatMode = mode;
+
+if (!chats[chatMode]) chats[chatMode] = {};
+
+chats[chatMode][chatId] = {
+        title: "Chat",
+        messages: []
+      };
+
+      try {
+        const msgRes = await fetch(`/api/messages/${chatId}`, {
+          credentials: "include"
+        });
+
+        const messages = await msgRes.json();
+
+        chats[chatMode][chatId].messages = messages.map(m => ({
+          role: m.role === "assistant" ? "ai" : m.role,
+          text: m.content
+        }));
+
+      } catch (err) {
+        console.error("Message load error:", err);
+      }
+    }
+
+    // 🔥 HANDLE EMPTY DATABASE (IMPORTANT)
+    if (!chats[mode] || Object.keys(chats[mode]).length === 0) {
+      await newChat();
+      return;
+    }
+
+    // 🔥 RESTORE LAST CHAT SAFELY
+    const savedChatId = localStorage.getItem("activeChatId");
+
+    if (savedChatId && chats[mode] && chats[mode][savedChatId]) {
+      currentChatId = savedChatId;
+    } else {
+      currentChatId = Object.keys(chats[mode])[0];
+    }
+
+    renderChat();
+    loadChatList();
+
+  } catch (err) {
+    console.error("Chat load error:", err);
+  }
+}
+
+    
+// 🔥 SAVE ACTIVE CHAT WHEN SWITCHING
+function setActiveChat(id) {
+  currentChatId = id;
+  localStorage.setItem("activeChatId", id);
+  renderChat();
+}
+
+// 🔁 PATCH CLICK HANDLER (VERY IMPORTANT)
+function overrideChatClicks() {
+  document.querySelectorAll(".chat-title").forEach(el => {
+    el.onclick = () => {
+      const id = el.dataset.id;
+      setActiveChat(id);
+    };
+  });
+}
+
+function toggleImageLibrary() {
+  const box = document.getElementById("imageLibrary");
+
+  if (box.style.display === "block") {
+    box.style.display = "none";
+    return;
+  }
+
+  box.style.display = "block";
+  loadImageLibrary();
+}
+
+async function loadImageLibrary() {
+  const box = document.getElementById("imageLibrary");
+  box.innerHTML = "Loading...";
+
+  try {
+    const res = await fetch("/api/chats", {
+      credentials: "include"
+    });
+
+    const chats = await res.json();
+
+    box.innerHTML = "";
+
+    for (const chat of chats) {
+      const msgRes = await fetch(`/api/messages/${chat.id}`, {
+        credentials: "include"
+      });
+
+      const messages = await msgRes.json();
+
+      messages.forEach(m => {
+        if (m.content && m.content.startsWith("IMAGE::")) {
+          const url = m.content.replace("IMAGE::", "");
+
+          const wrapper = document.createElement("div");
+
+const img = document.createElement("img");
+img.src = url;
+img.style.width = "100%";
+img.style.borderRadius = "8px";
+
+const btn = document.createElement("button");
+btn.innerText = "Download";
+btn.style.marginBottom = "10px";
+btn.onclick = () => downloadImage(url);
+
+wrapper.appendChild(img);
+wrapper.appendChild(btn);
+
+box.appendChild(wrapper);
+        }
+      });
+    }
+
+  } catch (err) {
+    box.innerHTML = "Failed to load images";
+    console.error(err);
+  }
+}
+
+// 🚀 START
+initApp();
 
 </script>
 

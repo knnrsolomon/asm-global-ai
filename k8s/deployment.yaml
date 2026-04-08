@@ -14,11 +14,28 @@ spec:
     spec:
       containers:
       - name: asm-ai
-        image: knnrsolomon/asm-ai-backend:latest
+        image: knnrsolomon/asm-ai-backend:v7-final-clean
+        imagePullPolicy: Always
+
         ports:
         - containerPort: 3000
+
         env:
         - name: OPENAI_API_KEY
-          value: "PUT_YOUR_REAL_KEY_HERE"
+          valueFrom:
+            secretKeyRef:
+              name: asm-ai-secret
+              key: OPENAI_API_KEY
+
         - name: JWT_SECRET
           value: "supersecret"
+
+        # 🔥 STORAGE
+        volumeMounts:
+        - name: asm-ai-storage
+          mountPath: /app/backend/data
+
+      volumes:
+      - name: asm-ai-storage
+        persistentVolumeClaim:
+          claimName: asm-ai-pvc
