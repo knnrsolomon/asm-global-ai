@@ -537,13 +537,6 @@ renderChat();
   }
 }
 
-if (step.video) {
-  content += `
-    <video controls width="100%">
-      <source src="${step.video}" type="video/mp4">
-    </video>
-  `;
-}
 
 async function login() {
   const res = await fetch("/login", {
@@ -749,13 +742,24 @@ function renderTeaching(steps) {
     }
 
     if (step.type === "step") {
-      content = `
-        <div class="bubble" style="background:#1e293b;">
-          <b style="color:#facc15;">${step.title}</b><br><br>
-          <pre style="color:#22c55e;">${step.content}</pre>
-        </div>
-      `;
-    }
+  let videoHTML = "";
+
+  if (step.video) {
+    videoHTML = `
+      <video controls width="100%">
+        <source src="${step.video}" type="video/mp4">
+      </video>
+    `;
+  }
+
+  content = `
+    <div class="bubble" style="background:#1e293b;">
+      <b style="color:#facc15;">${step.title}</b><br><br>
+      <pre style="color:#22c55e;">${step.content}</pre>
+      ${videoHTML}
+    </div>
+  `;
+}
 
     if (step.type === "result") {
       content = `<div class="bubble" style="background:#1e293b;color:#fb923c;font-size:18px;"><b>${step.text}</b></div>`;
