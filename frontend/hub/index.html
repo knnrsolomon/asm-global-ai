@@ -243,20 +243,19 @@
   </div>
 
   <div id="chat" class="chat"></div>
-
-  <div class="inputBox">
+<div class="inputBox">
 
   <!-- + BUTTON -->
   <button onclick="toggleAttachMenu()" style="padding:10px;border-radius:6px;background:#1e293b;color:white;">+</button>
-
-  <!-- HIDDEN FILE INPUT -->
-  <input type="file" id="fileInput" style="display:none">
 
   <!-- TEXT -->
   <input id="input" placeholder="Type a message...">
 
   <!-- MIC -->
   <button onclick="startVoice()" style="padding:10px;border-radius:6px;background:#1e293b;color:white;">🎤</button>
+
+  <!-- STOP VOICE -->
+  <button onclick="stopSpeaking()" style="padding:10px;border-radius:6px;background:#7f1d1d;color:white;">⛔</button>
 
   <!-- SEND -->
   <button onclick="send()">Send</button>
@@ -448,56 +447,60 @@ wrapper.appendChild(bubble);
 chatDiv.appendChild(wrapper);
   });
 }
+
 async function send() {
-  const input = document.getElementById("input");
-  let text = input.value.trim();
+  try {
+    const input = document.getElementById("input");
+    let text = input.value.trim();
 
-  if (!isLoggedIn) return alert("Login first");
+    if (!isLoggedIn) return alert("Login first");
+    if (!text) return;
 
-  // ✅ GUARANTEE STRING (NO NULL EVER)
-  if (!text) text = "";
+    if (!currentChatId) newChat();
 
-  // 🚫 Prevent empty requests completely
-  if (text === "") return;
+    const chat = chats[mode][currentChatId];
 
-  if (!currentChatId) newChat();
+    chat.messages.push({ role:"user", text });
 
-  const chat = chats[mode][currentChatId];
+    if (!chat.title) {
+      chat.title = text.substring(0, 30);
+    }
 
-  // Save user message
-  chat.messages.push({ role:"user", text });
+    renderChat();
+    loadChatList();
 
-  // Auto title
-  if (!chat.title) {
-    chat.title = text.substring(0, 30);
+    input.value = "";
+
+    const res = await fetch("/chat", {
+      method:"POST",
+      credentials:"include",
+      headers:{"Content-Type":"application/json"},
+      body: JSON.stringify({
+        message: text,
+        mode: mode,
+        subMode: subMode,
+        rgiLevel: rgiLevel,
+        spiritType: spiritType
+      })
+    });
+
+    const data = await res.json();
+
+    const replyText = data.reply || data.error || "No response";
+
+    chat.messages.push({
+      role:"ai",
+      text: replyText
+    });
+
+    speak(replyText);
+
+    renderChat();
+
+  } catch (err) {
+    console.error("SEND ERROR:", err);
+    alert("Something went wrong");
   }
-
-  renderChat();
-  loadChatList();
-
-  input.value = "";
-
-  const res = await fetch("/chat", {
-    method:"POST",
-    credentials:"include",
-    headers:{"Content-Type":"application/json"},
-    body: JSON.stringify({
-  message: text,
-  mode: mode,
-  subMode: subMode,
-  rgiLevel: rgiLevel,
-  spiritType: spiritType
-})
-  });
-
-  const data = await res.json();
-
-  chat.messages.push({
-    role:"ai",
-    text: data.reply || data.error || "No response"
-  });
-
-  renderChat();
 }
 
 async function login() {
@@ -635,6 +638,29 @@ checkAuth();
 // ✅ INITIAL UI RENDER
 console.log("Rendering subModes for:", mode);
 renderSubModes();
+
+// 🔊 KOJO VOICE ENGINE
+let currentSpeech = null;
+
+function speak(text) {
+  if (!("speechSynthesis" in window)) return;
+
+  stopSpeaking();
+
+  const utterance = new SpeechSynthesisUtterance(text);
+  utterance.rate = 0.9;
+  utterance.pitch = 1;
+  utterance.lang = "en-US";
+
+  currentSpeech = utterance;
+  speechSynthesis.speak(utterance);
+}
+
+function stopSpeaking() {
+  if (speechSynthesis.speaking) {
+    speechSynthesis.cancel();
+  }
+}
 
 </script>
 
