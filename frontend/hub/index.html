@@ -168,14 +168,14 @@
     }
 
     .auth-box button {
-      width:100%;
-      margin-top:10px;
-      padding:10px;
-      border:none;
-      border-radius:6px;
-      background:#3b82f6;
-      color:white;
-    }
+  width:100%;
+  margin-top:10px;
+  padding:10px;
+  border:none;
+  border-radius:6px;
+  background:#3b82f6;
+  color:white;
+}
   </style>
 </head>
 
@@ -558,17 +558,25 @@ async function login() {
 }
 
 async function signup() {
-  const res = await fetch("/signup", {
-    method:"POST",
-    headers:{"Content-Type":"application/json"},
-    body: JSON.stringify({
-      email: email.value,
-      password: password.value
-    })
-  });
+  try {
+    const email = document.getElementById("email").value;
+    const password = document.getElementById("password").value;
+    const msg = document.getElementById("msg");
 
-  const data = await res.json();
-  msg.innerText = data.success ? "Signup successful" : data.error;
+    const res = await fetch("/signup", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ email, password })
+    });
+
+    const data = await res.json();
+
+    msg.innerText = data.success ? "Signup successful" : data.error;
+
+  } catch (err) {
+    console.error("SIGNUP ERROR:", err);
+    alert("Signup failed");
+  }
 }
 
 async function checkAuth() {
