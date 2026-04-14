@@ -31,7 +31,12 @@
       border-radius:6px;
       cursor:pointer;
     }
-
+#subModes {
+  margin-top: 10px;
+  padding: 5px;
+  background: #020617;
+  border-radius: 6px;
+}
     .mode-btn.active {
       background:#3b82f6;
     }
@@ -195,7 +200,8 @@
   <button class="mode-btn" onclick="setMode('finance', this)">Finance</button>
 
   <button onclick="newChat()">➕ New Chat</button>
-
+<!-- SUB MODE CONTAINER -->
+<div id="subModes" style="margin-top:10px;"></div>
   <div id="chatList" class="chat-list"></div>
 
   <!-- PROFILE -->
@@ -276,9 +282,24 @@
 </div>
 
 <script>
+/* =====================================================
+   GLOBAL STATE (CORE SYSTEM VARIABLES)
+===================================================== */
 
+// 🔹 MODE SYSTEM
+let mode = "asm";          // main mode (default safe)
+let subMode = "general";   // sub layer
+
+// 🔹 RGI LEVEL SYSTEM
+let rgiLevel = "basic";
+
+// 🔹 SPIRITLYNK SYSTEM
+let spiritType = "counselling";
+
+// 🔹 AUTH STATE
 let isLoggedIn = false;
-let mode = "asm";
+
+// 🔹 CHAT ENGINE
 let chats = {};
 let currentChatId = null;
 
@@ -287,22 +308,62 @@ function toggleProfileMenu() {
   menu.style.display = menu.style.display === "block" ? "none" : "block";
 }
 
-function setMode(m, el) {
-  mode = m;
-  document.getElementById("modeLabel").innerText = "Mode: " + m;
+function setMode(newMode, el) {
+  mode = newMode;
+
+  subMode = "general";
+
+  if (mode === "rgi") {
+    rgiLevel = "basic";
+  }
+
+  if (mode === "spiritlynk") {
+    spiritType = "counselling";
+  }
+
+  document.getElementById("modeLabel").innerText = "Mode: " + mode;
 
   document.querySelectorAll(".mode-btn").forEach(b => b.classList.remove("active"));
-  el.classList.add("active");
+  if (el) el.classList.add("active");
 
-  if (!chats[mode] || Object.keys(chats[mode]).length === 0) {
-    newChat();
-  } else {
-    currentChatId = Object.keys(chats[mode])[0];
-    renderChat();
-    loadChatList();
-  }
+  newChat();
+
+  // ✅ FIX: render sub modes when mode changes
+  renderSubModes();
 }
 
+/* =====================================================
+   SUB MODE RENDER ENGINE
+===================================================== */
+
+function renderSubModes() {
+  const container = document.getElementById("subModes");
+  if (!container) return;
+
+  container.innerHTML = "";
+
+  // ✝️ SPIRITLYNK ONLY (FIRST PHASE)
+  if (mode === "spiritlynk") {
+
+    const items = ["counselling", "mentoring", "coaching", "prayer", "devotional"];
+
+    items.forEach(type => {
+      const btn = document.createElement("button");
+      btn.innerText = type;
+      btn.className = "mode-btn";
+btn.style.fontSize = "12px";
+btn.style.padding = "6px";
+btn.style.background = "#334155";
+
+      btn.onclick = () => {
+        subMode = type;
+        console.log("SpiritLynk Mode:", type);
+      };
+
+      container.appendChild(btn);
+    });
+  }
+}
 function newChat() {
   const id = Date.now();
   if (!chats[mode]) chats[mode] = {};
@@ -376,11 +437,15 @@ function renderChat() {
   const messages = chats[mode][currentChatId].messages;
 
   messages.forEach(m => {
-    chatDiv.innerHTML += `
-      <div class="msg ${m.role}">
-        <div class="bubble">${m.text}</div>
-      </div>
-    `;
+    const wrapper = document.createElement("div");
+wrapper.className = "msg " + m.role;
+
+const bubble = document.createElement("div");
+bubble.className = "bubble";
+bubble.textContent = m.text;
+
+wrapper.appendChild(bubble);
+chatDiv.appendChild(wrapper);
   });
 }
 async function send() {
@@ -417,9 +482,12 @@ async function send() {
     credentials:"include",
     headers:{"Content-Type":"application/json"},
     body: JSON.stringify({
-      message: text || " ",   // 🔥 CRITICAL FIX
-      mode: mode
-    })
+  message: text,
+  mode: mode,
+  subMode: subMode,
+  rgiLevel: rgiLevel,
+  spiritType: spiritType
+})
   });
 
   const data = await res.json();
@@ -563,6 +631,10 @@ function openHelp() {
   alert("Help center coming soon");
 }
 checkAuth();
+
+// ✅ INITIAL UI RENDER
+console.log("Rendering subModes for:", mode);
+renderSubModes();
 
 </script>
 

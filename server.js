@@ -18,7 +18,12 @@ app.use(cookieParser());
 const __dirname = new URL('.', import.meta.url).pathname;
 
 // static
-app.use(express.static(path.join(__dirname, "hub")));
+app.use(express.static(path.join(__dirname, "../frontend/hub")));
+
+// root route (SERVE FRONTEND ENTRY)
+app.get("/", (req, res) => {
+  res.sendFile(path.join(__dirname, "../frontend/hub/index.html"));
+});
 
 // db
 let db;

@@ -1,7 +1,10 @@
-import express from "express";
-import cors from "cors";
+import expressPkg from "express";
+const express = expressPkg.default || expressPkg;
+import corsPkg from "cors";
+const cors = corsPkg.default || corsPkg;
 import dotenv from "dotenv";
-import cookieParser from "cookie-parser";
+import cookieParserPkg from "cookie-parser";
+const cookieParser = cookieParserPkg.default || cookieParserPkg;
 import bcrypt from "bcrypt";
 import jwt from "jsonwebtoken";
 import crypto from "crypto";
@@ -158,21 +161,66 @@ app.post("/profile/update", auth, async (req, res) => {
 
 // ================= AI =================
 
-const client = new OpenAI({
-  apiKey: process.env.OPENAI_API_KEY
-});
+
 
 function getPrompt(mode) {
-  if (mode === "spiritlynk") return "You are SpiritLynk AI. Guide spiritually.";
-  if (mode === "rgi") return "You are RisingGem AI. Teach clearly.";
-  if (mode === "finance") return "You are Finance AI. Help with money.";
-  return "You are ASM Core AI.";
+
+  if (mode === "spiritlynk") {
+    return `
+You are SpiritLynk AI — a spiritual guide.
+
+Speak with clarity, calmness, and depth.
+Help the user grow spiritually step by step.
+Ask reflective questions.
+Guide, don’t rush.
+`;
+  }
+
+  if (mode === "rgi") {
+    return `
+You are RisingGem Instructor AI.
+
+You teach like a world-class teacher.
+
+Rules:
+- Break topics into steps
+- Ask questions to confirm understanding
+- Build knowledge progressively
+- Use simple explanations first, then deepen
+
+Never dump information — teach interactively.
+`;
+  }
+
+  if (mode === "finance") {
+    return `
+You are Finance Intelligence AI.
+
+Help the user:
+- Understand money clearly
+- Build income
+- Manage finances wisely
+
+Be practical and actionable.
+`;
+  }
+
+  return `
+You are ASM Core AI.
+
+Be helpful, clear, and intelligent.
+`;
 }
 
 app.post("/chat", auth, async (req, res) => {
   const { message, mode } = req.body;
 
   try {
+    // ✅ CREATE CLIENT HERE (RUNTIME SAFE)
+    const client = new OpenAI({
+      apiKey: process.env.OPENAI_API_KEY
+    });
+
     const response = await client.chat.completions.create({
       model: "gpt-4.1-mini",
       messages: [
@@ -184,7 +232,9 @@ app.post("/chat", auth, async (req, res) => {
     res.json({
       reply: response.choices[0].message.content
     });
+
   } catch (err) {
+    console.error("AI ERROR:", err);
     res.json({ error: "AI error" });
   }
 });
@@ -192,3 +242,4 @@ app.post("/chat", auth, async (req, res) => {
 // ================= START =================
 
 app.listen(3000, () => console.log("SERVER RUNNING"));
+// AUTO DEPLOY TEST
