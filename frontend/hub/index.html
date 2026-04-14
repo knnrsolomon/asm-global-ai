@@ -181,32 +181,52 @@
 
 <body>
 
+<!-- =====================================================
+   🔐 AUTH SECTION
+===================================================== -->
 <div id="auth">
   <div class="auth-box">
     <h3>ASM GLOBAL AI</h3>
+
     <input id="email" placeholder="Email">
     <input id="password" type="password" placeholder="Password">
-    <button onclick="login()">Login</button>
-    <button onclick="signup()">Signup</button>
+
+    <!-- AUTH BUTTONS -->
+    <button onclick="if(safeCall('login')) login()">Login</button>
+    <button onclick="if(safeCall('signup')) signup()">Signup</button>
+
     <p id="msg"></p>
   </div>
 </div>
 
+
+<!-- =====================================================
+   📂 SIDEBAR (MODES + CHAT LIST + PROFILE)
+===================================================== -->
 <div class="sidebar">
 
+  <!-- 🔹 MODE SWITCH -->
   <button class="mode-btn active" onclick="setMode('asm', this)">Core AI</button>
   <button class="mode-btn" onclick="setMode('spiritlynk', this)">SpiritLynk</button>
   <button class="mode-btn" onclick="setMode('rgi', this)">RisingGem</button>
   <button class="mode-btn" onclick="setMode('finance', this)">Finance</button>
 
+  <!-- 🔹 NEW CHAT -->
   <button onclick="newChat()">➕ New Chat</button>
-<!-- SUB MODE CONTAINER -->
-<div id="subModes" style="margin-top:10px;"></div>
+
+  <!-- 🔹 SUB MODES -->
+  <div id="subModes" style="margin-top:10px;"></div>
+
+  <!-- 🔹 CHAT LIST -->
   <div id="chatList" class="chat-list"></div>
 
-  <!-- PROFILE -->
+
+  <!-- =====================================================
+     👤 PROFILE SECTION
+  ===================================================== -->
   <div class="profile">
 
+    <!-- PROFILE HEADER -->
     <div onclick="toggleProfileMenu()" style="display:flex;align-items:center;cursor:pointer;">
       <div style="width:36px;height:36px;border-radius:50%;background:#3b82f6;display:flex;align-items:center;justify-content:center;margin-right:10px;">
         <span id="avatarInitial">U</span>
@@ -214,51 +234,65 @@
       <div id="userEmail">User</div>
     </div>
 
+    <!-- PROFILE MENU -->
     <div id="profileMenu" class="profile-menu">
 
-  <div onclick="addAccount()">➕ Add another account</div>
-  <hr>
+      <div onclick="addAccount()">➕ Add another account</div>
+      <hr>
 
-  <div onclick="upgradePlan()">⬆️ Upgrade plan</div>
-  <div onclick="personalization()">🎨 Personalization</div>
-  <div onclick="openProfile()">👤 Profile</div>
-  <div onclick="openSettings()">⚙️ Settings</div>
+      <div onclick="upgradePlan()">⬆️ Upgrade plan</div>
+      <div onclick="personalization()">🎨 Personalization</div>
+      <div onclick="openProfile()">👤 Profile</div>
+      <div onclick="openSettings()">⚙️ Settings</div>
 
-  <hr>
+      <hr>
 
-  <div onclick="openHelp()">❓ Help</div>
-  <div onclick="logout()">🚪 Log out</div>
+      <div onclick="openHelp()">❓ Help</div>
+      <div onclick="logout()">🚪 Log out</div>
 
-</div>
+    </div>
 
   </div>
 
 </div>
 
+
+<!-- =====================================================
+   🧠 MAIN CHAT AREA
+===================================================== -->
 <div class="main">
 
+  <!-- 🔹 TOP BAR -->
   <div class="topbar">
     <div>Kojo AI</div>
     <div id="modeLabel">Mode: asm</div>
   </div>
 
+  <!-- 🔹 CHAT DISPLAY -->
   <div id="chat" class="chat"></div>
-<div class="inputBox">
 
-  <!-- + BUTTON -->
-  <button onclick="toggleAttachMenu()" style="padding:10px;border-radius:6px;background:#1e293b;color:white;">+</button>
 
-  <!-- TEXT -->
-  <input id="input" placeholder="Type a message...">
+  <!-- =====================================================
+     ⌨️ INPUT BOX (CRITICAL INTERACTION LAYER)
+  ===================================================== -->
+  <div class="inputBox">
 
-  <!-- MIC -->
-  <button onclick="startVoice()" style="padding:10px;border-radius:6px;background:#1e293b;color:white;">🎤</button>
+    <!-- ➕ ATTACH -->
+    <button onclick="toggleAttachMenu()" style="padding:10px;border-radius:6px;background:#1e293b;color:white;">+</button>
 
-  <!-- STOP VOICE -->
-  <button onclick="stopSpeaking()" style="padding:10px;border-radius:6px;background:#7f1d1d;color:white;">⛔</button>
+    <!-- ✍️ INPUT -->
+    <input id="input" placeholder="Type a message...">
 
-  <!-- SEND -->
-  <button onclick="send()">Send</button>
+    <!-- 🎤 VOICE INPUT -->
+    <button onclick="if(safeCall('startVoice')) startVoice()" style="padding:10px;border-radius:6px;background:#1e293b;color:white;">🎤</button>
+
+    <!-- ⛔ STOP VOICE (FIXED) -->
+    <button onclick="if(safeCall('stopSpeaking')) stopSpeaking()" style="padding:10px;border-radius:6px;background:#7f1d1d;color:white;">⛔</button>
+
+    <!-- 📤 SEND -->
+    <button onclick="if(safeCall('send')) send()">Send</button>
+
+  </div>
 
 </div>
 
@@ -662,6 +696,22 @@ function stopSpeaking() {
   }
 }
 
+// 🔐 FUNCTION SAFETY GUARD
+function ensureFunctionExists(name) {
+  if (typeof window[name] !== "function") {
+    console.error(name + " is missing");
+    alert("System error: " + name + " not loaded");
+  }
+}
+
+function safeCall(fnName) {
+  if (typeof window[fnName] !== "function") {
+    alert("System error: " + fnName + " not available");
+    console.error(fnName + " is not defined");
+    return false;
+  }
+  return true;
+}
 </script>
 
 </body>
