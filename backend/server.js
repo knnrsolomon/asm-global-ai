@@ -215,6 +215,12 @@ Be helpful, clear, and intelligent.
 app.post("/chat", auth, async (req, res) => {
   const { message, mode } = req.body;
 
+// 🎯 TEACHING ENGINE HOOK
+if (mode === "rgi") {
+  const steps = buildTeachingSteps(message);
+  return res.json({ type: "teaching", steps });
+}
+
   try {
     // ✅ CREATE CLIENT HERE (RUNTIME SAFE)
     const client = new OpenAI({
@@ -238,6 +244,20 @@ app.post("/chat", auth, async (req, res) => {
     res.json({ error: "AI error" });
   }
 });
+
+function buildTeachingSteps(question) {
+  return [
+    { type: "intro", text: "Alright! Let’s learn together like a real classroom! 👋" },
+
+    { type: "step", title: "Step 1: Write the numbers", content: "24\n+18\n____" },
+
+    { type: "step", title: "Step 2: Add the ones", content: "4 + 8 = 12\n👉 Write 2, carry 1" },
+
+    { type: "step", title: "Step 3: Add the tens", content: "2 + 1 + 1 = 4" },
+
+    { type: "result", text: "Final Answer: 42 ✅" }
+  ];
+}
 
 // ================= START =================
 
