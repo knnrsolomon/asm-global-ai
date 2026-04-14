@@ -538,27 +538,6 @@ renderChat();
 }
 
 
-async function login() {
-  const res = await fetch("/login", {
-    method:"POST",
-    credentials:"include",
-    headers:{"Content-Type":"application/json"},
-    body: JSON.stringify({
-      email: email.value,
-      password: password.value
-    })
-  });
-
-  const data = await res.json();
-
-  if (data.success) {
-    document.getElementById("auth").style.display = "none";
-    checkAuth();
-  } else {
-    msg.innerText = data.error;
-  }
-}
-
 async function signup() {
   try {
     const email = document.getElementById("email").value;
@@ -605,6 +584,34 @@ document.getElementById("userEmail").innerText = displayName;
 // ✅ AVATAR USE NAME FIRST
 document.getElementById("avatarInitial").innerText =
   displayName.charAt(0).toUpperCase();
+}
+
+async function login() {
+  const email = document.getElementById("email").value;
+  const password = document.getElementById("password").value;
+  const msg = document.getElementById("msg");
+
+  try {
+    const res = await fetch("/login", {
+      method:"POST",
+      credentials:"include",
+      headers:{"Content-Type":"application/json"},
+      body: JSON.stringify({ email, password })
+    });
+
+    const data = await res.json();
+
+    if (data.success) {
+      document.getElementById("auth").style.display = "none";
+      checkAuth();
+    } else {
+      msg.innerText = data.error;
+    }
+
+  } catch (err) {
+    console.error("LOGIN ERROR:", err);
+    msg.innerText = "Login failed";
+  }
 }
 
 async function logout() {
@@ -664,7 +671,7 @@ async function openProfile() {
 
     alert("Profile updated");
 
-    // ✅ THIS WAS MISSING
+    // refresh UI
     checkAuth();
   }
 }
@@ -676,7 +683,7 @@ function openSettings() {
 function openHelp() {
   alert("Help center coming soon");
 }
-checkAuth();
+
 
 // ✅ INITIAL UI RENDER
 console.log("Rendering subModes for:", mode);
@@ -779,6 +786,11 @@ function renderTeaching(steps) {
 
   showNext();
 }
+
+// ✅ PLACE IT HERE (BOTTOM, OUTSIDE EVERYTHING)
+window.onload = () => {
+  checkAuth();
+};
 
 </script>
 </body>
