@@ -520,21 +520,29 @@ async function send() {
 
     const data = await res.json();
 
-    const replyText = data.reply || data.error || "No response";
+    if (data.type === "teaching") {
+  renderTeaching(data.steps);
+  return;
+}
 
-    chat.messages.push({
-      role:"ai",
-      text: replyText
-    });
+const replyText = data.reply || data.error || "No response";
 
-    speak(replyText);
-
-    renderChat();
+chat.messages.push({ role:"ai", text: replyText });
+speak(replyText);
+renderChat();
 
   } catch (err) {
     console.error("SEND ERROR:", err);
     alert("Something went wrong");
   }
+}
+
+if (step.video) {
+  content += `
+    <video controls width="100%">
+      <source src="${step.video}" type="video/mp4">
+    </video>
+  `;
 }
 
 async function login() {
@@ -719,6 +727,53 @@ function safeCall(fnName) {
     return false;
   }
   return true;
+}
+
+function renderTeaching(steps) {
+  const chat = document.getElementById("chat");
+
+  let i = 0;
+
+  function showNext() {
+    if (i >= steps.length) return;
+
+    const step = steps[i];
+
+    const div = document.createElement("div");
+    div.className = "msg ai";
+
+    let content = "";
+
+    if (step.type === "intro") {
+      content = `<div class="bubble" style="background:#1e293b;color:#38bdf8;">${step.text}</div>`;
+    }
+
+    if (step.type === "step") {
+      content = `
+        <div class="bubble" style="background:#1e293b;">
+          <b style="color:#facc15;">${step.title}</b><br><br>
+          <pre style="color:#22c55e;">${step.content}</pre>
+        </div>
+      `;
+    }
+
+    if (step.type === "result") {
+      content = `<div class="bubble" style="background:#1e293b;color:#fb923c;font-size:18px;"><b>${step.text}</b></div>`;
+    }
+
+    div.innerHTML = content;
+    chat.appendChild(div);
+
+    // 🎤 speak each step
+    speak(step.text || step.content);
+
+    chat.scrollTop = chat.scrollHeight;
+
+    i++;
+    setTimeout(showNext, 1200); // ⏱️ delay like real teaching
+  }
+
+  showNext();
 }
 
 </script>
